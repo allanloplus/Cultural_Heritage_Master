@@ -141,8 +141,10 @@ create table if not exists public.visits (
   site_name     text not null,
   category      text,
   visit_date    date not null check (visit_date <= current_date),
-  condition     text not null check (condition in ('良好','尚可','待修繕','修復施工中','閉館或封閉','已消失或拆除')),
-  open_status   text not null check (open_status in ('正常開放','限時或預約','僅能看外觀','未開放')),
+  kind          text not null default 'site',  -- site 有形文資／ich 無形文資／antiquity 古物（各類別的現況選項見 migrations/002）
+  condition     text not null,                -- 有形：文資現況；無形：傳承現況；古物：保存狀況
+  open_status   text not null,                -- 有形：開放情形；無形：公開情形；古物：展示情形
+  mode          text,                         -- 無形文資的參與方式
   recommend     smallint not null check (recommend between 1 and 5),
   scores        jsonb not null default '{}',  -- {history, preserve, interpret, friendly, access} 各 1–5
   body          text not null check (char_length(body) between 30 and 5000),
@@ -208,6 +210,7 @@ create table if not exists public.visit_plans (
   county_slug  text not null,
   site_id      text not null,
   site_name    text not null,
+  kind         text not null default 'site',
   planned_date date not null,
   planned_end  date,                          -- 行程結束日（同一趟行程的多處文資共用起訖日）
   trip         text,                          -- 行程名稱，例如「2026 金門行」
@@ -222,6 +225,26 @@ alter table public.visits      add column if not exists mood text;
 alter table public.visits      add column if not exists nearby jsonb not null default '[]';
 alter table public.visit_plans add column if not exists planned_end date;
 alter table public.visit_plans add column if not exists trip text;
+-- 升級 002：無形文化資產與古物（內容同 migrations/002_ich_antiquity.sql）
+alter table public.visits      add column if not exists kind text not null default 'site';
+alter table public.visits      add column if not exists mode text;
+alter table public.visit_plans add column if not exists kind text not null default 'site';
+
+alter table public.visits drop constraint if exists visits_condition_check;
+alter table public.visits drop constraint if exists visits_open_status_check;
+alter table public.visits drop constraint if exists visits_kind_values;
+alter table public.visits add constraint visits_kind_values check (
+     (kind = 'site'      and condition in ('良好','尚可','待修繕','修復施工中','閉館或封閉','已消失或拆除')
+                         and open_status in ('正常開放','限時或預約','僅能看外觀','未開放') and mode is null)
+  or (kind = 'ich'       and condition in ('傳承活躍','穩定傳承','傳承人少','式微或停辦')
+                         and open_status in ('定期公開舉行','預約或不定期','僅限社群內部','已停辦')
+                         and (mode is null or mode in ('觀賞祭典','觀賞演出','工藝體驗','參訪工坊','其他')))
+  or (kind = 'antiquity' and condition in ('良好','尚可','待修護','未能看到')
+                         and open_status in ('常設展出','特展或輪展','預約參觀','未公開展示') and mode is null)
+);
+alter table public.visit_plans drop constraint if exists visit_plans_kind_values;
+alter table public.visit_plans add constraint visit_plans_kind_values check (kind in ('site','ich','antiquity'));
+
 
 -- ---------- 列級權限（RLS） ----------
 alter table public.profiles            enable row level security;
@@ -282,7 +305,8 @@ select county_slug, site_id,
        max(visit_date)                        as last_visit,
        round(avg(recommend)::numeric, 2)      as avg_recommend,
        (array_agg(condition order by visit_date desc))[1]   as last_condition,
-       (array_agg(open_status order by visit_date desc))[1] as last_open_status
+       (array_agg(open_status order by visit_date desc))[1] as last_open_status,
+       max(kind)                              as kind
 from public.visits where status = 'published'
 group by county_slug, site_id;
 
