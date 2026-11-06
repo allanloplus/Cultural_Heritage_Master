@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文資達人訪查｜Allan Lo 和你逛文化</title>
+<meta name="description" content="文化資產的實地訪查紀錄：到訪日期、現況、心得、實地照片與推薦指數，由核准的文資達人共同更新；對應「Allan Lo 和你逛文化」文資知識網站。">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="demo-bar" id="demoBar" hidden></div>
+<header class="hdr">
+  <div class="wrap">
+    <a class="brand" href="#home">文資<b>達人</b>訪查</a>
+    <nav class="nav" id="nav">
+      <a href="#home" data-r="home">總覽</a>
+      <a href="#coverage" data-r="coverage">查核資訊</a>
+      <a href="#experts" data-r="experts">達人</a>
+      <a href="#latest" data-r="latest">最新紀錄</a>
+      <a href="#mine" data-r="mine" data-need="expert" hidden>我的訪查</a>
+      <a href="#admin" data-r="admin" data-need="reviewer" hidden>審查</a>
+    </nav>
+    <div class="who" id="who"></div>
+  </div>
+</header>
+<main><div class="wrap" id="view"><p class="empty">載入中…</p></div></main>
+<footer>
+  <div class="wrap">
+    <p>文資知識資料（歷史、介紹、語音導覽）在 <a href="https://cultural.123hi.org/" target="_blank" rel="noopener">Allan Lo 和你逛文化</a>；本站記錄文化資產的<b>實地現況與推薦</b>，由經審查核准的文資達人更新。</p>
+    <p>訪查內容為達人個人觀察，開放時間與參觀規定請以管理單位公告為準。照片版權屬拍攝者，依各照片標示的授權使用。</p>
+    <p>規劃設計：Allan Lo，<a href="https://www.123hi.org" target="_blank" rel="noopener">123hi.org</a>　｜　<a href="#about">關於本站與隱私說明</a></p>
+  </div>
+</footer>
+<script src="assets/js/config.js"></script>
+<script>
+  /* 正式模式才載入 Supabase 用戶端 */
+  if (window.VISIT_CONFIG.supabaseUrl) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"><\/script>');
+</script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
