@@ -25,8 +25,23 @@
   function today() { return new Date().toISOString().slice(0, 10); }
   function daysAgo(d) { return Math.floor((Date.now() - new Date(d + "T00:00:00").getTime()) / 864e5); }
   function stars(n) { n = Math.round(n || 0); var s = ""; for (var i = 1; i <= 5; i++) s += i <= n ? "★" : '<span class="off">★</span>'; return '<span class="stars" aria-label="推薦 ' + n + ' 顆星">' + s + "</span>"; }
-  function toast(msg) { var t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200); }
-  function fail(e) { console.error(e); toast("⚠ " + (e && e.message || e)); }
+  /* ---------- 阿拉蕾（AI 小助手）：依情境換表情與台詞 ----------
+   * 表情：explain 說明、laugh 開心、thumb 比讚、fight 加油、think 想一想、surprised 驚訝、confused 疑惑、sad 難過、present 介紹、wave 揮手、stand 站姿 */
+  var CH = "assets/characters/";
+  function araImg(mood, cls) { return '<img class="' + (cls || "ara-face") + '" src="' + CH + "arale-" + mood + '.webp" alt="阿拉蕾" loading="lazy">'; }
+  function ara(mood, html, opt) {
+    opt = opt || {};
+    return '<div class="ara' + (opt.cls ? " " + opt.cls : "") + '">' + araImg(mood) +
+      '<div class="ara-bubble"><span class="ara-name">阿拉蕾</span>' + html + "</div></div>";
+  }
+  function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
+  var MOOD_FACE = { "驚喜": "surprised", "感動": "thumb", "愉快": "laugh", "普通": "think", "可惜": "sad" };
+  function toast(msg, mood) {
+    var t = document.createElement("div"); t.className = "toast" + (mood ? " toast-ara" : "");
+    t.innerHTML = (mood ? araImg(mood, "toast-face") : "") + "<span>" + esc(msg) + "</span>";
+    document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3600);
+  }
+  function fail(e) { console.error(e); toast(e && e.message || String(e), "confused"); }
   function roleOf() { return ME ? ME.role : "anon"; }
   function isExpert() { return ["expert", "reviewer", "admin"].indexOf(roleOf()) >= 0; }
   function isReviewer() { return roleOf() === "reviewer" || roleOf() === "admin"; }
@@ -123,10 +138,10 @@
     var h = (location.hash || "#home").slice(1).split("/").map(decodeURIComponent), name = h[0] || "home";
     $$("#nav a").forEach(function (a) { a.classList.toggle("on", a.dataset.r === name || (name === "county" && a.dataset.r === "coverage") || (name === "expert" && a.dataset.r === "experts")); });
     var fn = ROUTES[name] || ROUTES.home;
-    view.innerHTML = '<p class="empty">載入中…</p>';
+    view.innerHTML = '<div class="loading">' + araImg("think", "loading-face") + '<span>阿拉蕾正在翻資料…</span></div>';
     window.scrollTo(0, 0);
     Promise.resolve().then(function () { return fn.apply(null, h.slice(1)); }).catch(function (e) {
-      view.innerHTML = '<div class="notice bad">發生錯誤：' + esc(e.message || e) + "</div>"; console.error(e);
+      view.innerHTML = ara("confused", "哎呀，出了點問題：" + esc(e.message || e) + '<br><a href="#home">回總覽</a>', { cls: "ara-lg" }); console.error(e);
     });
   }
 
@@ -143,7 +158,7 @@
       '<div class="facts"><span><b>現況</b><span class="cond-' + esc(v.condition) + '">' + esc(v.condition) + "</span></span><span><b>開放</b>" + esc(v.open_status) + "</span>" +
       (v.duration_min ? "<span><b>停留</b>約 " + v.duration_min + " 分</span>" : "") + (v.fee ? "<span><b>費用</b>" + esc(v.fee) + "</span>" : "") +
       (v.crowd ? "<span><b>人潮</b>" + esc(v.crowd) + "</span>" : "") + (v.accessible ? "<span><b>無障礙</b>" + esc(v.accessible) + "</span>" : "") + "</div>" +
-      '<p class="body">' + (v.mood ? '<span class="mood" title="心情">' + (MOODS[v.mood] || "") + " " + esc(v.mood) + "</span>　" : "") + esc(opt.short && v.body.length > 160 ? v.body.slice(0, 160) + "…" : v.body) + "</p>" +
+      '<p class="body">' + (v.mood ? '<span class="mood" title="當天心情">' + (MOOD_FACE[v.mood] ? araImg(MOOD_FACE[v.mood], "mood-face") : "") + esc(v.mood) + "</span>" : "") + esc(opt.short && v.body.length > 160 ? v.body.slice(0, 160) + "…" : v.body) + "</p>" +
       (opt.short && (v.nearby || []).length ? '<p class="small muted">附近推薦：' + v.nearby.map(function (n) { return esc(n.type + "・" + n.name); }).join("、") + "</p>" : "") +
       (opt.short ? "" :
         (v.tips ? '<p><b>參訪建議｜</b>' + esc(v.tips) + "</p>" : "") +
@@ -169,8 +184,8 @@
     });
   }
   function needLogin(msg) {
-    view.innerHTML = '<div class="card"><h2>需要登入</h2><p>' + esc(msg) + "</p>" +
-      (S.mode === "demo" ? "<p>示範模式：請在頁面上方黃色列切換身分。</p>" : '<a class="btn btn-p" href="#login">登入</a>') + "</div>";
+    view.innerHTML = ara("confused", "<b>咦，這裡要先登入喔！</b><br>" + esc(msg), { cls: "ara-lg" }) +
+      '<p class="btns" style="margin-top:14px">' + (S.mode === "demo" ? "<span>示範模式：請在頁面上方黃色列切換身分。</span>" : '<a class="btn btn-p" href="#login">登入</a>') + "</p>";
   }
 
   /* ---------- 總覽 ---------- */
@@ -181,15 +196,17 @@
       var rows = IDX.counties.map(function (c) { var k = coverage(c, plans); tot += k.total; vis += k.visited; visits += k.visits; fresh += k.fresh; return { c: c, k: k }; });
       var upcoming = plans.filter(function (p) { return p.status === "planned" && planEnd(p) >= today(); });
       view.innerHTML =
-        '<section><h1>文化資產的實地現況與推薦</h1>' +
-        '<p class="muted">「<a href="' + CFG.knowledgeHome + '" target="_blank" rel="noopener">Allan Lo 和你逛文化</a>」整理了來自文化部文化資產局與維基百科的文資知識；這裡則由經過審查核准的<b>文資達人</b>親自走訪，記錄每一處文化資產現在的樣子：到訪日期、保存現況、開放情形、參訪心得、實地照片與推薦指數。</p>' +
+        '<section class="hero"><div class="hero-text"><p class="eyebrow">Allan Lo 和你逛文化・姊妹站</p><h1>文化資產的<span class="hl">實地現況</span>與推薦</h1>' +
+        '<p>「<a href="' + CFG.knowledgeHome + '" target="_blank" rel="noopener">Allan Lo 和你逛文化</a>」整理了文資局與維基百科的文資知識；這裡由審查核准的<b>文資達人</b>親自走訪，記下每處文化資產現在的樣子：保存現況、開放情形、心得照片、推薦指數，還有附近的好吃好玩。</p>' +
+        '<div class="hero-talk">' + homeLine(tot, vis, latest, upcoming) + "</div></div>" +
+        '<div class="hero-cast" aria-hidden="true"><img class="cast-allan" src="' + CH + 'allan-wave.webp" alt=""><img class="cast-arale" src="' + CH + 'arale-wave.webp" alt=""></div></section>' +
         '<div class="kpis">' +
         kpi(tot.toLocaleString(), "全臺文化資產（處）") + kpi(vis.toLocaleString(), "已有訪查紀錄（處）") + kpi(pct(vis, tot) + "%", "訪查覆蓋率") +
         kpi(fresh.toLocaleString(), "近一年內更新（處）") + kpi(visits.toLocaleString(), "公開訪查紀錄（筆）") + kpi(experts.length, "核准達人（位）") + "</div>" +
         '<div class="btns">' + (isExpert() ? '<a class="btn btn-warm" href="#coverage">挑一處文資去訪查</a>' : '<a class="btn btn-warm" href="#apply">申請成為文資達人</a>') +
         '<a class="btn" href="#coverage">看各縣市查核資訊</a></div></section>' +
         '<section class="sec"><div class="sec-h"><h2>最新訪查</h2><a href="#latest">全部紀錄 →</a></div>' +
-        (latest.length ? latest.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : '<p class="empty">還沒有公開的訪查紀錄。</p>') + "</section>" +
+        (latest.length ? latest.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : ara("think", "還沒有公開的訪查紀錄耶……第一篇會是哪裡呢？好期待！")) + "</section>" +
         '<section class="sec"><div class="sec-h"><h2>各縣市訪查覆蓋率</h2><a href="#coverage">詳細查核資訊 →</a></div>' +
         '<div class="tbl-wrap"><table class="tbl"><tbody>' + rows.map(function (x) {
           return '<tr><td><a href="#county/' + x.c.slug + '">' + esc(x.c.label) + '</a></td><td class="n">' + x.k.visited + " / " + x.k.total + '</td><td style="width:50%"><div class="bar"><i style="width:' + pct(x.k.visited, x.k.total) + '%"></i></div></td><td class="n">' + pct(x.k.visited, x.k.total) + "%</td></tr>";
@@ -200,6 +217,17 @@
       bindPhotos(view);
     });
   };
+  function homeLine(tot, vis, latest, upcoming) {
+    var who = ME ? esc(ME.display_name) : "";
+    if (ME && isExpert() && upcoming.some(function (p) { return p.user_id === ME.id; })) {
+      var p = upcoming.filter(function (x) { return x.user_id === ME.id; })[0];
+      return ara("fight", "<b>" + who + "，" + (p.trip ? "「" + esc(p.trip) + "」" : esc(p.site_name)) + "快到了！</b><br>記得帶行動電源，拍照時避開路人的臉喔～ <a href=\"#mine\">看我的行程 →</a>");
+    }
+    if (ME && isExpert()) return ara("present", "<b>" + who + "，今天要去看哪一處文資？</b><br>全臺還有 <b>" + (tot - vis).toLocaleString() + "</b> 處沒有人訪查過，<a href=\"#coverage\">來挑一個吧 →</a>");
+    if (ME && roleOf() === "member") return ara("thumb", "<b>歡迎 " + who + "！</b><br>想一起記錄文資現況嗎？<a href=\"#apply\">申請成為文資達人</a>，我幫你送去審查！");
+    if (latest.length) return ara("laugh", "嗨！我是 AI 小助手阿拉蕾～<br>最新一篇是 <b>" + esc(latest[0].author) + "</b> 去 " + siteLink(latest[0]) + " 的紀錄，" + pickOne(["快去看看！", "照片很好看喔！", "看完也想出發了吧？"]));
+    return ara("explain", "嗨！我是 AI 小助手阿拉蕾～<br>全臺 <b>" + tot.toLocaleString() + "</b> 處文化資產，正等著達人們一處一處去拜訪！");
+  }
   function kpi(v, l) { return '<div class="kpi"><div class="v">' + v + '</div><div class="l">' + l + "</div></div>"; }
 
   /* ---------- 查核資訊 ---------- */
@@ -214,7 +242,11 @@
       });
       var catOrder = ["國定古蹟", "直轄市定古蹟", "市定古蹟", "縣定古蹟", "歷史建築", "紀念建築", "聚落建築群", "考古遺址", "文化景觀"];
       var catNames = Object.keys(cats).sort(function (a, b) { return (catOrder.indexOf(a) + 99) % 99 - (catOrder.indexOf(b) + 99) % 99; });
-      view.innerHTML = '<h1>查核資訊</h1><p class="muted">對照文資知識網站收錄的 ' + T.total.toLocaleString() + ' 處有形文化資產（資料產生日 ' + esc(IDX.meta.generated) +
+      var best = rows.slice().sort(function (a, b) { return pct(b.k.visited, b.k.total) - pct(a.k.visited, a.k.total); })[0];
+      var most = rows.slice().sort(function (a, b) { return (b.k.total - b.k.visited) - (a.k.total - a.k.visited); })[0];
+      var covLine = T.visited === 0 ? ara("think", "目前還是一片空白耶……第一位達人會從哪個縣市開始呢？")
+        : ara("present", "目前覆蓋率最高的是 <b>" + esc(best.c.label) + "</b>（" + pct(best.k.visited, best.k.total) + "%）！<br><b>" + esc(most.c.label) + "</b> 還有 " + (most.k.total - most.k.visited) + " 處沒人去過，" + pickOne(["誰要接下挑戰？", "需要更多達人幫忙！", "排進下次旅行吧～"]));
+      view.innerHTML = '<h1>查核資訊</h1>' + covLine + '<p class="muted">對照文資知識網站收錄的 ' + T.total.toLocaleString() + ' 處有形文化資產（資料產生日 ' + esc(IDX.meta.generated) +
         '），統計各縣市已有多少處有實地訪查紀錄。「近一年」指最近一次公開訪查在 365 天內；「需回訪」指最近一次訪查已超過 ' + Math.round(CFG.staleDays / 365) + ' 年；「預計到訪」為達人已登記但尚未完成的處數。</p>' +
         '<div class="kpis">' + kpi(T.total.toLocaleString(), "文化資產（處）") + kpi(T.visited.toLocaleString(), "已訪查（處）") + kpi(pct(T.visited, T.total) + "%", "覆蓋率") +
         kpi((T.total - T.visited).toLocaleString(), "尚未訪查（處）") + kpi(T.fresh.toLocaleString(), "近一年更新（處）") + kpi(T.planned.toLocaleString(), "預計到訪（處）") + "</div>" +
@@ -258,6 +290,9 @@
         '<form class="card form" id="tripForm" hidden style="margin-top:12px"><h3>規劃訪查行程</h3><p class="small muted">在下方清單勾選這趟要去的文化資產（可用鄉鎮、類別篩選，例如先篩「尚未訪查」），再填行程名稱與日期，一次登記成預計到訪。到現場後在「我的訪查」逐一填寫紀錄。</p>' +
         '<div class="row"><label>行程名稱<input type="text" name="trip" required maxlength="40" placeholder="例如：2026 ' + esc(c.label.replace(/（.*）/, "")) + '行"></label><label>開始日<input type="date" name="d1" required></label><label>結束日<input type="date" name="d2" required></label></div>' +
         '<p><b id="pickCnt">已勾選 0 處</b>　<button type="button" class="btn btn-sm" id="pickClr">清除勾選</button></p><div class="btns"><button class="btn btn-p">登記行程</button><button type="button" class="btn" id="tripCancel">取消</button></div></form>' +
+        ara(k.visited === 0 ? "think" : pct(k.visited, k.total) >= 50 ? "thumb" : "explain",
+          k.visited === 0 ? esc(c.label) + "的 " + k.total + " 處文資都還沒有人訪查過！" + (isExpert() ? "按「規劃訪查行程」一次勾選好幾處，出發吧！" : "")
+            : esc(c.label) + "已經訪查 " + k.visited + " 處，還有 " + (k.total - k.visited) + " 處等你去看看。" + (k.stale ? "另外有 " + k.stale + " 處太久沒更新，需要回訪喔！" : "")) +
         '<div class="kpis">' + kpi(k.total, "文資（處）") + kpi(k.visited, "已訪查") + kpi(pct(k.visited, k.total) + "%", "覆蓋率") + kpi(k.total - k.visited, "尚未訪查") + kpi(k.stale, "需回訪") + kpi(k.planned, "預計到訪") + "</div>" +
         '<div class="filters"><input class="search" id="q" type="search" placeholder="搜尋名稱" style="max-width:220px">' +
         '<select id="fs"><option value="">全部狀態</option><option value="none">尚未訪查</option><option value="done">已訪查</option><option value="stale">需回訪</option><option value="plan">預計到訪</option></select>' +
@@ -303,7 +338,7 @@
           if (!ids.length) return toast("請在清單勾選至少一處文化資產");
           if (tf.d2.value < tf.d1.value) return toast("結束日不能早於開始日");
           S.savePlans(ids.map(function (sid) { var x = site(slug, sid); return { county_slug: slug, site_id: sid, site_name: x.name, planned_date: tf.d1.value, planned_end: tf.d2.value, trip: tf.trip.value.trim() }; }))
-            .then(function () { toast("已登記行程：" + ids.length + " 處"); location.hash = "#mine"; }).catch(fail);
+            .then(function () { toast("行程登記好了！共 " + ids.length + " 處，一路順風～", "fight"); location.hash = "#mine"; }).catch(fail);
         };
       }
       ["q", "fs", "fc", "ft"].forEach(function (id) { var el = $("#" + id); if (el) el.oninput = draw; });
@@ -330,7 +365,7 @@
         '<div class="kpis">' + kpi(pub.length, "公開訪查紀錄") + kpi(last ? last.visit_date : "—", "最近訪查日") +
         kpi(last ? '<span class="cond-' + esc(last.condition) + '">' + esc(last.condition) + "</span>" : "—", "最新現況") + kpi(last ? esc(last.open_status) : "—", "開放情形") +
         kpi(pub.length ? avg.toFixed(1) + " " + stars(avg) : "—", "平均推薦指數") + "</div>" +
-        (last && daysAgo(last.visit_date) > CFG.staleDays ? '<div class="notice">最近一次訪查已超過 ' + Math.round(CFG.staleDays / 365) + " 年，現況可能已改變，歡迎達人回訪更新。</div>" : "") +
+        siteLine(s, pub, last, avg) +
         '<div class="btns">' + (isExpert() ? '<a class="btn btn-warm" href="#submit/' + slug + "/" + encodeURIComponent(id) + '">新增訪查紀錄</a>' +
           (myPlan ? '<span class="tag st-pending">你預計 ' + planRange(myPlan) + " 到訪" + (myPlan.trip ? "（" + esc(myPlan.trip) + "）" : "") + "</span>" : '<button class="btn" id="planBtn">登記預計到訪</button>') :
           '<a class="btn" href="#apply">成為達人來更新這裡</a>') +
@@ -339,16 +374,26 @@
         '<form class="card form" id="planForm" hidden style="margin-top:12px"><h3>登記預計到訪</h3><div class="row"><label>預計日期<input type="date" name="d" required min="' + today() + '"></label><label>備註<input type="text" name="n" maxlength="200" placeholder="例如：配合週末導覽場次"></label></div><div class="btns"><button class="btn btn-p">登記</button></div></form>' +
         (plans.length ? '<p class="muted small" style="margin-top:10px">已登記預計到訪：' + plans.map(function (p) { return '<a href="#expert/' + p.user_id + '">' + esc(p.author) + "</a>（" + planRange(p) + "）"; }).join("、") + "</p>" : "") +
         (near.length ? '<section class="sec"><h2>達人的附近推薦</h2><p class="muted small">美食、住宿、交通等資訊來自達人訪查當時的經驗，可能已有變動。</p>' + nearbyList(near, true) + "</section>" : "") +
-        '<section class="sec"><h2>訪查紀錄</h2>' + (visits.length ? visits.map(function (v) { return visitCard(v); }).join("") : '<p class="empty">這裡還沒有訪查紀錄，等你來當第一位！</p>') + "</section>";
+        '<section class="sec"><h2>訪查紀錄</h2>' + (visits.length ? visits.map(function (v) { return visitCard(v); }).join("") : '<p class="empty">還沒有紀錄</p>') + "</section>";
       bindPhotos(view);
       var pb = $("#planBtn"), pf = $("#planForm");
       if (pb) pb.onclick = function () { pf.hidden = false; pb.hidden = true; };
       if (pf) pf.onsubmit = function (e) {
         e.preventDefault();
-        S.savePlan({ county_slug: slug, site_id: id, site_name: s.name, planned_date: pf.d.value, note: pf.n.value }).then(function () { toast("已登記預計到訪"); route(); }).catch(fail);
+        S.savePlan({ county_slug: slug, site_id: id, site_name: s.name, planned_date: pf.d.value, note: pf.n.value }).then(function () { toast("登記好了，等你的訪查心得喔！", "thumb"); route(); }).catch(fail);
       };
     });
   };
+
+  function siteLine(s, pub, last, avg) {
+    if (!last) return ara("sad", "<b>" + esc(s.short || s.name) + "</b>還沒有人來訪查過……" + (isExpert() ? "你要當第一位嗎？我會幫你記下來！" : "希望很快有達人來看看它現在的樣子！"));
+    if (["閉館或封閉", "已消失或拆除"].indexOf(last.condition) >= 0) return ara("sad", "最近一次訪查（" + last.visit_date + "）回報：<b>" + esc(last.condition) + "</b>。出發前先確認一下喔！");
+    if (["待修繕", "修復施工中"].indexOf(last.condition) >= 0) return ara("confused", "這裡最近是「<b>" + esc(last.condition) + "</b>」，可能有部分區域看不到，要留意圍籬和公告喔。");
+    if (daysAgo(last.visit_date) > CFG.staleDays) return ara("think", "最近一次訪查已經是 " + last.visit_date + "，超過 " + Math.round(CFG.staleDays / 365) + " 年了，現況可能變了，需要達人回訪更新！");
+    if (avg >= 4.5) return ara("thumb", "<b>" + pub.length + "</b> 位達人紀錄、平均 <b>" + avg.toFixed(1) + "</b> 顆星，大家都推薦！" + pickOne(["一定要排進行程～", "我也好想去！"]));
+    if (avg >= 3.5) return ara("laugh", "平均 <b>" + avg.toFixed(1) + "</b> 顆星，最新現況「" + esc(last.condition) + "」、" + esc(last.open_status) + "。看看達人們怎麼說吧！");
+    return ara("explain", "平均 " + avg.toFixed(1) + " 顆星。每個人感受不同，看完心得再決定要不要去吧！");
+  }
 
   ROUTES.visit = function (id) {
     return S.getVisit(id).then(function (v) {
@@ -364,7 +409,7 @@
       view.innerHTML = '<h1>最新訪查紀錄</h1><div class="filters"><select id="fc"><option value="">全部縣市</option>' + IDX.counties.map(function (c) { return '<option value="' + c.slug + '">' + esc(c.label) + "</option>"; }).join("") + '</select></div><div id="list"></div>';
       function draw() {
         var f = $("#fc").value, l = list.filter(function (v) { return !f || v.county_slug === f; });
-        $("#list").innerHTML = l.length ? l.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : '<p class="empty">沒有紀錄</p>';
+        $("#list").innerHTML = l.length ? l.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : ara("think", "這裡還沒有紀錄耶，換個縣市看看？");
         bindPhotos($("#list"));
       }
       $("#fc").onchange = draw; draw();
@@ -376,7 +421,8 @@
     return S.expertStats().then(function (list) {
       list.sort(function (a, b) { return b.published - a.published; });
       var t = list.reduce(function (a, x) { a.p += x.published; a.pl += x.planned; a.d += x.plans_done; return a; }, { p: 0, pl: 0, d: 0 });
-      view.innerHTML = '<h1>文資達人</h1><p class="muted">文資達人須經申請與審查核准，才能新增訪查紀錄。下表統計每位達人的公開紀錄，以及「預計到訪」與實際完成的情形。</p>' +
+      view.innerHTML = '<h1>文資達人</h1>' + (list.length ? ara("thumb", "謝謝 <b>" + list.length + "</b> 位達人！" + (list[0].published ? "目前紀錄最多的是 <b>" + esc(list[0].display_name) + "</b>，" + list[0].published + " 篇，好厲害！" : "大家一起把文資的現況記下來吧！"))
+        : ara("think", "還沒有核准的達人……要不要<a href=\"#apply\">當第一位</a>？")) + '<p class="muted">文資達人須經申請與審查核准，才能新增訪查紀錄。下表統計每位達人的公開紀錄，以及「預計到訪」與實際完成的情形。</p>' +
         '<div class="kpis">' + kpi(list.length, "核准達人") + kpi(t.p, "公開紀錄") + kpi(t.pl, "登記預計到訪") + kpi(t.d, "預計已完成") + kpi(pct(t.d, t.pl) + "%", "預計到訪達成率") + "</div>" +
         '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>達人</th><th>擅長縣市</th><th class="n">公開紀錄</th><th class="n">訪查文資</th><th class="n">涵蓋縣市</th><th class="n">預計到訪</th><th class="n">已完成</th><th class="n">逾期未訪</th><th class="n">達成率</th><th>最近訪查</th></tr></thead><tbody>' +
         list.map(function (x) {
@@ -410,7 +456,7 @@
             var st = p.status === "done" ? '<span class="tag st-published">已完成</span>' : p.status === "cancelled" ? '<span class="tag">已取消</span>' : planEnd(p) < t ? '<span class="tag st-rejected">逾期</span>' : '<span class="tag st-pending">預計中</span>';
             return "<tr><td>" + planRange(p) + "</td><td>" + esc(p.trip || "") + "</td><td>" + siteLink(p) + "</td><td>" + st + "</td><td>" + esc(p.note || "") + "</td></tr>";
           }).join("") + "</tbody></table></div>" : '<p class="muted">沒有登記預計到訪。</p>') + "</section>" +
-        '<section class="sec"><h2>訪查紀錄</h2>' + (visits.length ? visits.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : '<p class="empty">還沒有紀錄。</p>') + "</section>";
+        '<section class="sec"><h2>訪查紀錄</h2>' + (visits.length ? visits.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : ara("think", "這位達人還在準備第一篇紀錄～")) + "</section>";
       bindPhotos(view);
     });
   };
@@ -444,7 +490,8 @@
       var keep = (v.photos || []).slice(), added = [];
       view.innerHTML = '<p class="crumb">' + (s ? '<a href="#site/' + slug + "/" + encodeURIComponent(id) + '">' + esc(s.name) + "</a> › " : "") + (v.id ? "修改訪查紀錄" : "新增訪查紀錄") + "</p>" +
         "<h1>" + (v.id ? "修改訪查紀錄" : "新增訪查紀錄") + "</h1>" +
-        (!ME.trusted && !isReviewer() ? '<div class="notice">送出後會先進入審查，審查者核准後才會公開。修改已公開的紀錄也會重新送審。</div>' : "") +
+        ara("fight", (v.id ? "要補充什麼呢？" : "出發訪查囉！") + "我的小提醒：" + pickOne(["拍一張全景、一張細節，大家最想看！", "照片避開路人的臉和車牌喔～", "開放時間有改的話，記得寫在「資料勘誤」！", "附近有好吃的，也記得推薦給大家！", "私人宅第只在外面看就好，不要打擾住戶喔。"]) +
+          (!ME.trusted && !isReviewer() ? "<br><small>送出後會先給審查者看過才公開；修改已公開的紀錄也會重新送審。</small>" : "")) +
         '<form class="form" id="vf">' +
         '<fieldset><legend>訪查地點</legend><div class="row"><label>縣市<select name="county" required>' + IDX.counties.map(function (c) { return '<option value="' + c.slug + '"' + (c.slug === slug ? " selected" : "") + ">" + esc(c.label) + "</option>"; }).join("") + "</select></label>" +
         '<label>文化資產<input type="text" name="siteq" list="siteopts" placeholder="輸入名稱搜尋" required autocomplete="off" value="' + esc(s ? s.name : "") + '"><datalist id="siteopts"></datalist></label></div>' +
@@ -523,7 +570,7 @@
         this.value = "";
       };
       var del = $("#delBtn");
-      if (del) del.onclick = function () { if (confirm("確定刪除這筆紀錄？")) S.deleteVisit(v.id).then(function () { toast("已刪除"); location.hash = "#mine"; }).catch(fail); };
+      if (del) del.onclick = function () { if (confirm("確定刪除這筆紀錄？")) S.deleteVisit(v.id).then(function () { toast("已刪除這筆紀錄", "sad"); location.hash = "#mine"; }).catch(fail); };
       f.onsubmit = function (e) {
         e.preventDefault();
         pick();
@@ -544,7 +591,7 @@
         if (v.id) { data.id = v.id; data.keepPhotos = keep; }
         $("#sendBtn").disabled = true; $("#sendBtn").textContent = "上傳中…";
         S.saveVisit(data, added.map(function (p) { return { blob: p.blob, caption: p.caption, license: p.license }; })).then(function () {
-          toast(ME.trusted || isReviewer() ? "已儲存並公開" : "已送出，等待審查");
+          toast(ME.trusted || isReviewer() ? "收到！紀錄已公開，辛苦了～" : "收到！已送給審查者，核准後就會公開～", "thumb");
           location.hash = "#site/" + data.county_slug + "/" + encodeURIComponent(data.site_id);
         }).catch(function (e) { $("#sendBtn").disabled = false; $("#sendBtn").textContent = "重新送出"; fail(e); });
       };
@@ -576,16 +623,21 @@
     if (!ME) return needLogin("請先登入。");
     return Promise.all([S.listVisits({ user: ME.id }), S.listPlans({ user: ME.id }), S.myApplications()]).then(function (r) {
       var visits = r[0], plans = r[1], apps = r[2], t = today();
-      view.innerHTML = "<h1>我的訪查</h1>" +
+      var open = plans.filter(function (p) { return p.status === "planned"; }), now = open.filter(function (p) { return p.planned_date <= t && planEnd(p) >= t; });
+      var mineLine = !isExpert() ? "" : now.length ? ara("fight", "<b>行程進行中！</b>今天還有 " + now.length + " 處可以訪查，按「填寫紀錄」就能邊走邊記～")
+        : open.length ? ara("present", "你有 <b>" + open.length + "</b> 處預計到訪，最近的是 " + open[0].planned_date + " 的 " + siteLink(open[0]) + "。")
+        : visits.length ? ara("thumb", "已經寫了 <b>" + visits.length + "</b> 篇紀錄，太棒了！下一趟要去哪裡呢？")
+        : ara("explain", "還沒有行程喔！到縣市頁按「規劃訪查行程」，一次勾選要去的文資。");
+      view.innerHTML = "<h1>我的訪查</h1>" + mineLine +
         (isExpert() ? '<div class="btns"><a class="btn btn-warm" href="#coverage">找文資去訪查</a></div>' +
           '<section class="sec"><h2>我的訪查行程與預計到訪</h2>' + (plans.length ? tripGroups(plans, t) : '<p class="muted">還沒有登記。到縣市頁按「規劃訪查行程」一次勾選多處，或在文資頁按「登記預計到訪」。</p>') + "</section>" +
-          '<section class="sec"><h2>我的紀錄（' + visits.length + "）</h2>" + (visits.length ? visits.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : '<p class="empty">還沒有紀錄</p>') + "</section>"
+          '<section class="sec"><h2>我的紀錄（' + visits.length + "）</h2>" + (visits.length ? visits.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : '<p class="empty muted">還沒有紀錄</p>') + "</section>"
           : '<div class="card"><p>你目前是一般會員。成為文資達人後才能新增訪查紀錄。</p>' + (apps.length ? "<p>申請狀態：" + apps.map(function (a) { return a.created_at.slice(0, 10) + " " + ({ pending: "審查中", approved: "已核准", rejected: "未通過" })[a.status] + (a.review_note ? "（" + esc(a.review_note) + "）" : ""); }).join("；") + "</p>" : "") + '<a class="btn btn-warm" href="#apply">申請成為達人</a></div>') +
         '<section class="sec"><h2>個人資料</h2><form class="card form" id="pf"><label>公開署名<input type="text" name="n" required maxlength="40" value="' + esc(ME.display_name) + '"></label>' +
         '<label>簡介<input type="text" name="b" maxlength="300" value="' + esc(ME.bio || "") + '"></label><div class="btns"><button class="btn btn-p">儲存</button></div></form></section>';
       bindPhotos(view);
-      $$("[data-cancel]").forEach(function (b) { b.onclick = function () { S.updatePlan(b.dataset.cancel, { status: "cancelled" }).then(route).catch(fail); }; });
-      $("#pf").onsubmit = function (e) { e.preventDefault(); S.updateProfile({ display_name: this.n.value.trim(), bio: this.b.value.trim(), regions: ME.regions || [] }).then(function (m) { ME = m; renderChrome(); toast("已儲存"); }).catch(fail); };
+      $$("[data-cancel]").forEach(function (b) { b.onclick = function () { S.updatePlan(b.dataset.cancel, { status: "cancelled" }).then(function () { toast("已取消這處預計到訪", "sad"); route(); }).catch(fail); }; });
+      $("#pf").onsubmit = function (e) { e.preventDefault(); S.updateProfile({ display_name: this.n.value.trim(), bio: this.b.value.trim(), regions: ME.regions || [] }).then(function (m) { ME = m; renderChrome(); toast("個人資料已儲存", "thumb"); }).catch(fail); };
     });
   };
 
@@ -609,11 +661,11 @@
   /* ---------- 申請成為達人 ---------- */
   ROUTES.apply = function () {
     if (!ME) return needLogin("申請成為文資達人前，請先以 email 註冊登入。");
-    if (isExpert()) { view.innerHTML = '<div class="card"><h2>你已經是文資達人</h2><a class="btn btn-warm" href="#coverage">找文資去訪查</a></div>'; return; }
+    if (isExpert()) { view.innerHTML = ara("laugh", "你已經是文資達人囉！<a href=\"#coverage\">找一處文資去訪查吧 →</a>", { cls: "ara-lg" }); return; }
     return S.myApplications().then(function (apps) {
       var pend = apps.filter(function (a) { return a.status === "pending"; })[0];
-      if (pend) { view.innerHTML = '<div class="card"><h2>申請審查中</h2><p>你在 ' + pend.created_at.slice(0, 10) + " 送出的申請正在審查，核准後就能開始新增訪查紀錄。</p></div>"; return; }
-      view.innerHTML = "<h1>申請成為文資達人</h1><p>文資達人經審查核准後，可以新增訪查紀錄、上傳實地照片、登記預計到訪。審查重點：對文化資產的熟悉度、過往的走訪或解說經驗、是否願意遵守投稿規範。</p>" +
+      if (pend) { view.innerHTML = "<h1>申請審查中</h1>" + ara("think", "你在 " + pend.created_at.slice(0, 10) + " 送出的申請，審查者正在看喔！核准後就能開始新增訪查紀錄，再等一下下～", { cls: "ara-lg" }); return; }
+      view.innerHTML = "<h1>申請成為文資達人</h1>" + ara("present", "<b>歡迎加入文資達人！</b><br>寫下你和文化資產的故事：去過哪些地方、做過導覽或文史調查都可以，審查者會用來認識你～") + "<p>文資達人經審查核准後，可以新增訪查紀錄、上傳實地照片、登記預計到訪。審查重點：對文化資產的熟悉度、過往的走訪或解說經驗、是否願意遵守投稿規範。</p>" +
         (apps.some(function (a) { return a.status === "rejected"; }) ? '<div class="notice">你之前的申請未通過，可以補充資料後再申請。</div>' : "") +
         '<form class="card form" id="af"><div class="row"><label>公開署名<small>顯示在紀錄上</small><input type="text" name="dn" required maxlength="40" value="' + esc(ME.display_name) + '"></label>' +
         '<label>真實姓名<small>僅審查者可見</small><input type="text" name="rn" maxlength="40"></label><label>聯絡方式<small>僅審查者可見</small><input type="text" name="ct" maxlength="100" placeholder="電話或 LINE ID"></label></div>' +
@@ -626,7 +678,7 @@
         e.preventDefault(); var f = this;
         S.applyExpert({ display_name: f.dn.value.trim(), real_name: f.rn.value.trim(), contact: f.ct.value.trim(),
           regions: $$("[name=rg]:checked", f).map(function (x) { return x.value; }), expertise: f.ex.value.trim(), sample_url: f.su.value.trim(), agree_terms: true })
-          .then(function () { toast("已送出申請"); route(); }).catch(fail);
+          .then(function () { toast("申請送出了！審查結果出來我再通知你～", "thumb"); route(); }).catch(fail);
       };
     });
   };
@@ -635,8 +687,8 @@
   ROUTES.login = function () {
     if (S.mode === "demo") { view.innerHTML = '<div class="card"><h2>示範模式</h2><p>尚未連接資料庫，請用頁面上方的黃色列切換身分。正式上線設定方式見 README。</p></div>'; return; }
     if (ME) { location.hash = "#mine"; return; }
-    view.innerHTML = '<h1>登入</h1><form class="card form" id="lf" style="max-width:440px"><label>Email<input type="email" name="e" required autocomplete="email"></label><p class="small muted">我們會寄一封登入連結到你的信箱，點連結即可登入，不需要密碼。第一次登入會自動建立會員。</p><div class="btns"><button class="btn btn-p">寄送登入連結</button></div></form>';
-    $("#lf").onsubmit = function (e) { e.preventDefault(); S.signIn(this.e.value.trim()).then(function () { view.innerHTML = '<div class="card"><h2>請收信</h2><p>登入連結已寄出，請到信箱點連結回到本站。</p></div>'; }).catch(fail); };
+    view.innerHTML = '<h1>登入</h1>' + ara("explain", "輸入 email，我寄一封登入連結給你，點一下就登入了，不用記密碼喔！") + '<form class="card form" id="lf" style="max-width:440px"><label>Email<input type="email" name="e" required autocomplete="email"></label><p class="small muted">我們會寄一封登入連結到你的信箱，點連結即可登入，不需要密碼。第一次登入會自動建立會員。</p><div class="btns"><button class="btn btn-p">寄送登入連結</button></div></form>';
+    $("#lf").onsubmit = function (e) { e.preventDefault(); S.signIn(this.e.value.trim()).then(function () { view.innerHTML = "<h1>請收信</h1>" + ara("thumb", "登入連結寄出去了！到信箱點連結就會回到這裡。<br><small>幾分鐘內沒收到的話，看一下垃圾郵件匣，或稍後再試一次。</small>", { cls: "ara-lg" }); }).catch(fail); };
   };
 
   /* ---------- 審查 ---------- */
@@ -651,9 +703,9 @@
       pane.innerHTML = list.length ? list.map(function (v) {
         return visitCard(v, { showSite: true }) + '<div class="card" style="margin:-6px 0 18px;border-top:0;border-radius:0 0 14px 14px"><div class="row"><input class="search" placeholder="審查意見（退回時必填）" id="n-' + v.id + '"></div><div class="btns" style="margin-top:8px">' +
           '<button class="btn btn-p btn-sm" data-ok="' + v.id + '">核准公開</button><button class="btn btn-sm btn-bad" data-no="' + v.id + '">退回</button></div></div>';
-      }).join("") : '<p class="empty">沒有待審紀錄 🎉</p>';
+      }).join("") : ara("laugh", "沒有待審紀錄，全部審完了！辛苦了～");
       bindPhotos(pane);
-      $$("[data-ok]").forEach(function (b) { b.onclick = function () { S.reviewVisit(b.dataset.ok, "published", $("#n-" + b.dataset.ok).value).then(function () { toast("已核准"); renderChrome(); route(); }).catch(fail); }; });
+      $$("[data-ok]").forEach(function (b) { b.onclick = function () { S.reviewVisit(b.dataset.ok, "published", $("#n-" + b.dataset.ok).value).then(function () { toast("核准公開了！", "thumb"); renderChrome(); route(); }).catch(fail); }; });
       $$("[data-no]").forEach(function (b) {
         b.onclick = function () { var n = $("#n-" + b.dataset.no).value.trim(); if (!n) return toast("退回請填寫審查意見"); S.reviewVisit(b.dataset.no, "rejected", n).then(function () { toast("已退回"); renderChrome(); route(); }).catch(fail); };
       });
@@ -666,8 +718,8 @@
           '<p class="body" style="white-space:pre-wrap">' + esc(a.expertise) + "</p>" + (a.sample_url ? '<p><a href="' + esc(a.sample_url) + '" target="_blank" rel="noopener noreferrer">作品連結 ↗</a></p>' : "") +
           (a.review_note ? '<p class="muted">審查意見：' + esc(a.review_note) + "</p>" : "") +
           (a.status === "pending" ? '<input class="search" placeholder="審查意見" id="an-' + a.id + '"><div class="btns" style="margin-top:8px"><button class="btn btn-p btn-sm" data-aok="' + a.id + '">核准為達人</button><button class="btn btn-sm btn-bad" data-ano="' + a.id + '">不通過</button></div>' : "") + "</div>";
-      }).join("") : '<p class="empty">沒有申請</p>';
-      $$("[data-aok]").forEach(function (b) { b.onclick = function () { S.reviewApplication(b.dataset.aok, "approved", $("#an-" + b.dataset.aok).value).then(function () { toast("已核准"); renderChrome(); route(); }).catch(fail); }; });
+      }).join("") : ara("think", "目前沒有達人申請。");
+      $$("[data-aok]").forEach(function (b) { b.onclick = function () { S.reviewApplication(b.dataset.aok, "approved", $("#an-" + b.dataset.aok).value).then(function () { toast("歡迎新達人加入！", "laugh"); renderChrome(); route(); }).catch(fail); }; });
       $$("[data-ano]").forEach(function (b) {
         b.onclick = function () { var n = $("#an-" + b.dataset.ano).value.trim(); if (!n) return toast("請填寫不通過的原因"); S.reviewApplication(b.dataset.ano, "rejected", n).then(function () { toast("已更新"); renderChrome(); route(); }).catch(fail); };
       });
