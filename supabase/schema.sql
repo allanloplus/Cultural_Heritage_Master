@@ -308,8 +308,10 @@ where p.role in ('expert','reviewer','admin');
 grant select on public.v_site_stats, public.v_expert_stats to anon, authenticated;
 
 -- ---------- Storage：照片 bucket ----------
-insert into storage.buckets (id, name, public) values ('visit-photos', 'visit-photos', true)
-on conflict (id) do nothing;
+-- 單檔上限 5 MB、只接受 JPEG（網頁上傳前已縮圖轉成 JPEG）
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('visit-photos', 'visit-photos', true, 5242880, array['image/jpeg'])
+on conflict (id) do update set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 drop policy if exists s_photo_insert on storage.objects;
 create policy s_photo_insert on storage.objects for insert to authenticated
   with check (bucket_id = 'visit-photos' and public.is_expert() and (storage.foldername(name))[1] = auth.uid()::text);

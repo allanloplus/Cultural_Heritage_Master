@@ -13,6 +13,7 @@
 (function () {
   "use strict";
   var CFG = window.VISIT_CONFIG, S = window.Store;
+  if (!S) { document.getElementById("view").innerHTML = '<div class="notice bad">網站設定錯誤，無法啟動：請檢查 assets/js/config.js 的 Supabase 金鑰（只能填 anon／publishable key）。</div>'; return; }
   var IDX, COUNTY = {}, SITE = {}, ME = null, STATS = null;
   var view = document.getElementById("view");
 

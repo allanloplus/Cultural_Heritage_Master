@@ -355,5 +355,13 @@
     };
   }
 
+  /* 防呆：config.js 只能放 anon（publishable）key。誤貼 service_role／secret key 時拒絕啟動，避免金鑰在公開網頁上外洩 */
+  function isSecretKey(k) {
+    if (/^sb_secret_/.test(k)) return true;
+    try { return JSON.parse(atob(k.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role === "service_role"; } catch (e) { return false; }
+  }
+  if (CFG.supabaseAnonKey && isSecretKey(CFG.supabaseAnonKey)) {
+    throw new Error("config.js 填的是 service_role／secret key，這把金鑰不能放在網頁上。請立刻到 Supabase 重新產生（rotate）這把金鑰，改填 anon（publishable）key。");
+  }
   window.Store = CFG.supabaseUrl && CFG.supabaseAnonKey && window.supabase ? SupabaseStore() : DemoStore();
 })();
