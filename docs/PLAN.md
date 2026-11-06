@@ -1,6 +1,7 @@
 # 文資達人訪查網站 — 規劃書
 
 - 規劃：Allan Lo，2026 年 11 月
+- 網址：https://cultural-visit.123hi.org/
 - Repo：`allanloplus/Cultural_Heritage_Master`（GitHub Pages）
 - 姊妹站：文資知識網站「Allan Lo 和你逛文化」 https://cultural.123hi.org/（`Cultural_Heritage`）、https://cultural2.123hi.org/（`Cultural_Heritage2`）
 
@@ -110,7 +111,7 @@ Supabase
 3. 把 Project URL、anon public key 填入 `assets/js/config.js`。
 4. 用 Allan 的 email 在網站登入一次，SQL Editor 執行：
    `update public.profiles set role='admin', trusted=true where id=(select id from auth.users where email='…');`
-5. GitHub Pages：Settings → Pages → Deploy from branch `main` / root。要用自訂網域（例如 `visit.123hi.org`）就加 `CNAME`，並把知識網站 `assets/js/city/app.js` 的 `VISIT_BASE` 改成新網址。
+5. GitHub Pages：Settings → Pages → Deploy from branch `main` / root，自訂網域 `cultural-visit.123hi.org`（`CNAME` 已設定），勾選 Enforce HTTPS。知識網站 `assets/js/city/app.js` 的 `VISIT_BASE` 已指向這個網址。
 6. 邀請第一批達人申請、審核。
 
 ## 10. 分期
