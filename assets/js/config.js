@@ -4,8 +4,8 @@
  * anon key 是公開金鑰，可以放在網頁裡；資料權限由 supabase/schema.sql 的 RLS 規則控管。
  * 絕對不要把 service_role key 放進這個檔案。 */
 window.VISIT_CONFIG = {
-  supabaseUrl: "",
-  supabaseAnonKey: "",
+  supabaseUrl: "https://nrkyehwamiyjgnvoliel.supabase.co",
+  supabaseAnonKey: "sb_publishable_LN3h9tUyL6mitzQidJFGhQ_S90EHzRx",   // publishable key（公開金鑰）
   siteName: "文資達人訪查",
   knowledgeHome: "https://cultural.123hi.org/",   // 文資知識網站（入口頁）
   maxPhotos: 6,                                     // 每筆訪查紀錄最多幾張照片
