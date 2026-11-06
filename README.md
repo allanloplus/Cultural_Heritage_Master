@@ -51,6 +51,15 @@
 | `supabase/schema.sql` | 資料表、觸發器、RLS 權限、統計檢視表、照片 bucket（可重複執行，也可用來升級） |
 | `supabase/migrations/002_ich_antiquity.sql` | 升級：加入無形文資與古物（已在使用中的資料庫執行這份即可） |
 
+## Supabase 保持運作
+
+Supabase 免費方案的專案 7 天沒有資料庫活動就會被暫停。`.github/workflows/supabase-keepalive.yml` 每天臺灣時間 09:17、21:17 自動讀取一次公開資料（不寫入、不需要任何密碼），讓專案保持運作。
+
+- 讀取失敗（例如專案已被暫停）時 workflow 會失敗，GitHub 會寄信通知；到 Supabase 後台選專案按 **Resume project** 即可恢復
+- 可在 GitHub 的 **Actions** 分頁選「Supabase 保持運作」按 **Run workflow** 手動執行
+- repo 連續 60 天沒有更新時，GitHub 會自動停用排程並寄信通知，到 Actions 分頁按 **Enable workflow** 恢復
+- 免費方案**沒有自動備份**，請另外定期匯出資料庫（含申請者個資，不可放公開 repo）
+
 ## 更新文資清單
 
 知識網站新增或修改文資後：

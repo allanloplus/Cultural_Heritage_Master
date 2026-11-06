@@ -1,0 +1,59 @@
+# Supabase 保持運作：每天兩次讀取資料庫，避免免費方案「7 天沒有活動就暫停專案」
+#
+# - 只讀取網頁本來就公開的資料（統計檢視表、公開紀錄），不寫入任何東西
+# - 使用的網址與 publishable key 直接讀 assets/js/config.js（公開金鑰，網頁上本來就看得到），不需要設定任何密碼或 Secret
+# - 讀取失敗（例如專案已被暫停、金鑰被換掉）時，這個 workflow 會顯示失敗，GitHub 會寄信通知 repo 擁有者
+# - 也可以到 GitHub 的 Actions 分頁，選「Supabase 保持運作」按 Run workflow 手動執行
+# - 注意：repo 連續 60 天沒有任何更新時，GitHub 會自動停用排程並寄信通知，到 Actions 分頁按 Enable workflow 即可恢復
+name: Supabase 保持運作
+
+on:
+  schedule:
+    - cron: "17 1,13 * * *"   # UTC 01:17、13:17＝臺灣時間每天 09:17、21:17
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: assets/js/config.js
+          sparse-checkout-cone-mode: false
+
+      - name: 讀取 Supabase 設定
+        id: cfg
+        run: |
+          URL=$(sed -n 's/^ *supabaseUrl: *"\([^"]*\)".*/\1/p' assets/js/config.js)
+          KEY=$(sed -n 's/^ *supabaseAnonKey: *"\([^"]*\)".*/\1/p' assets/js/config.js)
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "config.js 沒有填 Supabase（示範模式），不需要保持運作。"
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          case "$KEY" in sb_secret_*) echo "::error::config.js 填的是 secret key，請立刻到 Supabase 更換金鑰"; exit 1;; esac
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::$KEY"
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
+
+      - name: 讀取資料庫（公開資料）
+        if: steps.cfg.outputs.skip != '1'
+        env:
+          URL: ${{ steps.cfg.outputs.url }}
+          KEY: ${{ steps.cfg.outputs.key }}
+        run: |
+          fail=0
+          for q in "v_site_stats?select=site_id&limit=1" "v_expert_stats?select=id&limit=1" "visits?select=id&status=eq.published&limit=1"; do
+            code=$(curl -sS -o /tmp/out -w '%{http_code}' --max-time 30 --retry 2 --retry-delay 10 \
+              -H "apikey: $KEY" "$URL/rest/v1/$q" || echo 000)
+            echo "$code  ${q%%\?*}"
+            if [ "$code" != "200" ]; then fail=1; head -c 300 /tmp/out; echo; fi
+          done
+          if [ "$fail" = 1 ]; then
+            echo "::error::Supabase 讀取失敗。若專案已被暫停，請到 Supabase 後台選專案按 Resume project。"
+            exit 1
+          fi
+          echo "Supabase 正常運作中 $(date -u +%FT%TZ)"
