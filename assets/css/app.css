@@ -151,3 +151,88 @@ ul.nearby .tag { margin-right: 8px; }
 .nb-住宿 { background: color-mix(in srgb, var(--teal) 15%, var(--card)); }
 .nb-交通 { background: color-mix(in srgb, var(--sun) 22%, var(--card)); }
 .nb-row { border-bottom: 1px dashed var(--line); padding-bottom: 10px; align-items: end; }
+
+/* ===== 阿拉蕾與活潑化 ===== */
+.brand { display: inline-flex; align-items: center; gap: 6px; }
+.brand img { width: 36px; height: 36px; object-fit: cover; object-position: top; border-radius: 50%; background: var(--mint); border: 2px solid var(--teal); }
+.eyebrow { color: var(--peach); font-weight: 700; letter-spacing: .08em; font-size: .85rem; margin: 0 0 4px; }
+h1 .hl { background: linear-gradient(transparent 62%, color-mix(in srgb, var(--sun) 55%, transparent) 62%); padding: 0 2px; }
+h2 { display: flex; align-items: center; gap: 8px; }
+.sec > h2::before, .sec-h h2::before { content: ""; width: 8px; height: 1.1em; border-radius: 4px; background: linear-gradient(var(--peach), var(--sun)); flex: none; }
+
+/* 對話：頭像＋漫畫泡泡（與知識網站的對話框同一風格） */
+.ara { display: flex; align-items: flex-end; gap: 10px; margin: 12px 0 18px; }
+.ara-face { width: 72px; height: 72px; object-fit: cover; object-position: top; border-radius: 50%; background: var(--mint); border: 3px solid var(--teal); flex: none; box-shadow: var(--shadow); }
+.ara-bubble { position: relative; background: var(--card); border: 2px solid var(--teal); border-radius: 16px; padding: 10px 14px; box-shadow: 3px 3px 0 var(--teal); max-width: 680px; line-height: 1.65; }
+.ara-bubble::before { content: ""; position: absolute; left: -9px; bottom: 16px; width: 14px; height: 14px; background: var(--card); border: 2px solid var(--teal); border-top: 0; border-right: 0; transform: rotate(45deg); }
+.ara-name { display: block; font-size: .78rem; font-weight: 700; color: var(--teal); letter-spacing: .05em; }
+.ara-lg .ara-face { width: 112px; height: 112px; }
+.ara-lg .ara-bubble { font-size: 1.05rem; padding: 14px 18px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ara-face { animation: ara-pop .45s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .ara-bubble { animation: ara-in .35s .12s ease-out both; }
+  .cast-arale { animation: ara-bob 3.2s ease-in-out infinite; }
+  .cast-allan { animation: ara-bob 3.6s .4s ease-in-out infinite; }
+}
+@keyframes ara-pop { from { transform: scale(.4) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ara-in { from { transform: translateX(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ara-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+/* 首頁：Allan＋阿拉蕾 */
+.hero { display: grid; grid-template-columns: 1fr 340px; gap: 12px; align-items: end; padding: 22px 24px 0; margin-top: 4px; border-radius: 22px; overflow: hidden;
+  background: radial-gradient(circle at 85% 30%, color-mix(in srgb, var(--sun) 35%, transparent), transparent 55%),
+              linear-gradient(135deg, color-mix(in srgb, var(--mint) 70%, var(--card)), color-mix(in srgb, var(--peach) 14%, var(--card)));
+  border: 1px solid var(--line); }
+.hero-text { padding-bottom: 18px; }
+.hero-text > p { max-width: 640px; }
+.hero-talk .ara { margin-bottom: 0; }
+.hero-cast { position: relative; height: 290px; }
+.hero-cast img { position: absolute; bottom: 0; height: 100%; width: auto; filter: drop-shadow(0 6px 10px rgba(60, 40, 20, .18)); }
+.cast-allan { left: 0; height: 96% !important; }
+.cast-arale { right: 6px; height: 88% !important; }
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; padding: 18px 16px 0; }
+  .hero-cast { height: 190px; order: -1; }
+  .cast-allan { left: 18%; } .cast-arale { right: 18%; }
+  .ara-face { width: 56px; height: 56px; }
+  .ara-lg .ara-face { width: 80px; height: 80px; }
+}
+
+/* 數字卡更有色彩 */
+.kpi { position: relative; overflow: hidden; border-top: 4px solid var(--teal); }
+.kpis .kpi:nth-child(6n+2) { border-top-color: var(--peach); }
+.kpis .kpi:nth-child(6n+3) { border-top-color: var(--sun); }
+.kpis .kpi:nth-child(6n+4) { border-top-color: var(--hinoki); }
+.kpis .kpi:nth-child(6n+5) { border-top-color: #6b5bb5; }
+.kpis .kpi:nth-child(6n+6) { border-top-color: var(--good); }
+.kpi .v { color: var(--ink); }
+
+.visit { border-left: 5px solid var(--teal); }
+.visit:hover { box-shadow: 0 2px 6px rgba(60, 40, 20, .12), 0 14px 32px rgba(60, 40, 20, .14); }
+.mood { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--teal); margin-right: 8px; vertical-align: middle; }
+.mood-face { width: 32px; height: 32px; object-fit: cover; object-position: top; border-radius: 50%; background: var(--mint); border: 2px solid var(--teal); }
+
+.toast-ara { display: flex; align-items: center; gap: 10px; padding: 6px 18px 6px 6px; background: var(--teal); color: var(--teal-ink); }
+.toast-face { width: 44px; height: 44px; object-fit: cover; object-position: top; border-radius: 50%; background: var(--mint); border: 2px solid var(--teal-ink); flex: none; }
+.loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px 0; color: var(--muted); }
+.loading-face { width: 64px; height: 64px; object-fit: cover; object-position: top; border-radius: 50%; background: var(--mint); border: 3px solid var(--teal); }
+@media (prefers-reduced-motion: no-preference) { .loading-face { animation: ara-bob 1.2s ease-in-out infinite; } }
+
+.foot-ara { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
+.foot-ara img { height: 96px; width: auto; flex: none; }
+.foot-ara p { background: var(--card); border: 1px dashed var(--teal); border-radius: 12px; padding: 8px 12px; margin: 0; }
+
+/* 手機版頁首：第一列標誌＋帳號，第二列選單可左右滑動 */
+.nav a { white-space: nowrap; }
+.kpi .v .stars { font-size: .7em; }
+@media (max-width: 760px) {
+  .hdr .wrap { gap: 4px 10px; padding-top: 6px; padding-bottom: 6px; min-height: 0; }
+  .brand { font-size: 1.1rem; }
+  .brand img { width: 30px; height: 30px; }
+  .who { margin-left: auto; font-size: .82rem; }
+  .nav { order: 3; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px 4px; }
+  .nav::-webkit-scrollbar { display: none; }
+  .kpi { padding: 10px 12px; }
+  .kpi .v { font-size: 1.35rem; }
+  .demo-bar .wrap { gap: 4px 8px; font-size: .8rem; }
+}
