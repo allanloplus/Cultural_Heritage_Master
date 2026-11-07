@@ -225,18 +225,20 @@
         (v.correction ? '<div class="notice"><b>資料勘誤｜</b>' + esc(v.correction) + "</div>" : "") +
         (v.review_note && (mine || isReviewer()) ? '<div class="notice bad"><b>審查意見｜</b>' + esc(v.review_note) + "</div>" : "")) +
       ((v.photos || []).length ? '<div class="photos">' + v.photos.slice(0, opt.short ? 4 : 99).map(function (p) {
-        return '<figure><img loading="lazy" src="' + esc(p.url) + '" alt="' + esc(p.caption || v.site_name) + '" data-cap="' + esc((p.caption || "") + "　© " + v.author + "，" + p.license) + '"><figcaption>' + esc(p.caption || "") + "　© " + esc(v.author) + "・" + esc(p.license) + "</figcaption></figure>";
+        return '<figure><img loading="lazy" src="' + esc(p.thumb || p.url) + '" data-full="' + esc(p.url) + '" onerror="' + THUMB_FALLBACK + '" alt="' + esc(p.caption || v.site_name) + '" data-cap="' + esc((p.caption || "") + "　© " + v.author + "，" + p.license) + '"><figcaption>' + esc(p.caption || "") + "　© " + esc(v.author) + "・" + esc(p.license) + "</figcaption></figure>";
       }).join("") + "</div>" : "") +
       '<div class="btns">' + (opt.short ? '<a class="btn btn-sm" href="#visit/' + v.id + '">閱讀全文</a>' : "") +
       (s ? '<a class="btn btn-sm" href="' + knowledgeUrl(v.county_slug, v.site_id) + '" target="_blank" rel="noopener">' + (s.kind !== "site" && !s.venueId ? "縣市知識頁" : "文資知識頁") + "</a>" : "") +
       ((mine && v.status !== "hidden") || isReviewer() ? '<a class="btn btn-sm" href="#edit/' + v.id + '">修改</a>' : "") + "</div>" +
       "</article>";
   }
+  /* 舊照片（2026-11-07 以前上傳）沒有小圖：小圖載入失敗時改用大圖 */
+  var THUMB_FALLBACK = "if(this.dataset.full&amp;&amp;this.src!==this.dataset.full){this.src=this.dataset.full}else{this.onerror=null}";
   function bindPhotos(el) {
     $$(".photos img", el).forEach(function (img) {
       img.onclick = function () {
         var lb = document.createElement("div"); lb.className = "lightbox";
-        lb.innerHTML = '<div><img src="' + img.src + '" alt=""><p>' + esc(img.dataset.cap) + "</p></div>";
+        lb.innerHTML = '<div><img src="' + esc(img.dataset.full || img.src) + '" alt=""><p>' + esc(img.dataset.cap) + "</p></div>";   // 點開才載入大圖
         lb.onclick = function () { lb.remove(); }; document.body.appendChild(lb);
       };
     });
@@ -686,7 +688,7 @@
         '<fieldset><legend>附近推薦</legend><p class="small muted">順路的美食、住宿、交通方式或其他景點，幫下一位訪客規劃。連結請貼店家官網、Google 地圖或粉專網址。</p><div id="nbList" class="form"></div>' +
         '<p style="margin-top:8px"><button type="button" class="btn btn-sm" id="nbAdd">＋ 新增一筆推薦</button></p></fieldset>' +
         '<label>資料勘誤<small>發現知識網站或官方資料與現場不符（地址、開放時間、已改建等），寫在這裡，管理者會回頭修正知識網站。</small><input type="text" name="correction" maxlength="500" value="' + esc(v.correction || "") + '"></label>' +
-        '<fieldset><legend>實地照片（最多 ' + CFG.maxPhotos + ' 張）</legend><p class="small muted">照片會在瀏覽器裡縮到長邊 ' + CFG.photoMaxPx + ' 像素並移除 EXIF（含 GPS 位置）後才上傳。請避免拍到可辨識的路人臉孔、車牌或私宅內部。</p>' +
+        '<fieldset><legend>實地照片（最多 ' + CFG.maxPhotos + ' 張）</legend><p class="small muted">照片會在瀏覽器裡縮到長邊 ' + CFG.photoMaxPx + ' 像素（另存一張 ' + CFG.thumbPx + ' 像素的小圖供列表使用）並移除 EXIF（含 GPS 位置）後才上傳。請避免拍到可辨識的路人臉孔、車牌或私宅內部。</p>' +
         '<input type="file" id="ph" accept="image/*" multiple><div class="ph-list" id="phList" style="margin-top:8px"></div></fieldset>' +
         '<label class="check"><input type="checkbox" name="agree" required' + (v.id ? " checked" : "") + '><span>我確認這是本人實地訪查的紀錄，照片為本人拍攝；同意依所選授權公開照片，並遵守本站的<a href="#about" target="_blank">投稿規範</a>。</span></label>' +
         '<div class="btns"><button class="btn btn-p" id="sendBtn">' + (v.id ? "儲存修改" : "送出紀錄") + "</button>" + (v.id && (v.status !== "published" || roleOf() === "admin") ? '<button type="button" class="btn btn-bad" id="delBtn">刪除</button>' : "") + "</div></form>";
@@ -728,7 +730,7 @@
       };
       fillOpts(); pick();
       function drawPh() {
-        $("#phList").innerHTML = keep.map(function (p, i) { return '<div class="ph-item"><img src="' + esc(p.url) + '" alt=""><small>' + esc(p.caption || "") + '</small><button type="button" class="btn btn-sm btn-bad" data-k="' + i + '">移除</button></div>'; }).join("") +
+        $("#phList").innerHTML = keep.map(function (p, i) { return '<div class="ph-item"><img src="' + esc(p.thumb || p.url) + '" data-full="' + esc(p.url) + '" onerror="' + THUMB_FALLBACK + '" alt=""><small>' + esc(p.caption || "") + '</small><button type="button" class="btn btn-sm btn-bad" data-k="' + i + '">移除</button></div>'; }).join("") +
           added.map(function (p, i) {
             return '<div class="ph-item"><img src="' + p.preview + '" alt=""><input type="text" placeholder="照片說明" maxlength="120" data-cap="' + i + '" value="' + esc(p.caption) + '">' +
               '<select data-lic="' + i + '">' + LICENSES.map(function (l) { return "<option" + (p.license === l ? " selected" : "") + ">" + l + "</option>"; }).join("") + '</select><button type="button" class="btn btn-sm btn-bad" data-a="' + i + '">移除</button></div>';
@@ -742,8 +744,8 @@
       $("#ph").onchange = function () {
         var files = Array.prototype.slice.call(this.files), room = CFG.maxPhotos - keep.length - added.length;
         if (files.length > room) toast("最多 " + CFG.maxPhotos + " 張，只加入前 " + Math.max(room, 0) + " 張");
-        Promise.all(files.slice(0, Math.max(room, 0)).map(function (fl) { return shrink(fl, S.mode === "demo" ? 900 : CFG.photoMaxPx); })).then(function (bs) {
-          bs.forEach(function (b) { added.push({ blob: b, preview: URL.createObjectURL(b), caption: "", license: LICENSES[0] }); });
+        Promise.all(files.slice(0, Math.max(room, 0)).map(function (fl) { return shrinkSet(fl, S.mode === "demo" ? 900 : CFG.photoMaxPx); })).then(function (bs) {
+          bs.forEach(function (b) { added.push({ blob: b.full, thumb: b.thumb, preview: URL.createObjectURL(b.thumb), caption: "", license: LICENSES[0] }); });
           drawPh();
         }).catch(fail);
         this.value = "";
@@ -770,7 +772,7 @@
         if (f.plan && f.plan.value) data.plan_id = f.plan.value;
         if (v.id) { data.id = v.id; data.keepPhotos = keep; }
         $("#sendBtn").disabled = true; $("#sendBtn").textContent = "上傳中…";
-        S.saveVisit(data, added.map(function (p) { return { blob: p.blob, caption: p.caption, license: p.license }; })).then(function () {
+        S.saveVisit(data, added.map(function (p) { return { blob: p.blob, thumb: p.thumb, caption: p.caption, license: p.license }; })).then(function () {
           toast(ME.trusted || isReviewer() ? "收到！紀錄已公開，辛苦了～" : "收到！已送給審查者，核准後就會公開～", "thumb");
           location.hash = "#site/" + data.county_slug + "/" + encodeURIComponent(data.site_id);
         }).catch(function (e) { $("#sendBtn").disabled = false; $("#sendBtn").textContent = "重新送出"; fail(e); });
@@ -782,16 +784,22 @@
     for (var i = 1; i <= 5; i++) s += '<label><input type="radio" name="' + name + '" value="' + i + '"' + (+val === i ? " checked" : "") + (req && i === 1 ? " required" : "") + ">" + i + "</label>";
     return s + "</div>";
   }
-  /* 縮圖：重新繪製到 canvas 再輸出 JPEG，EXIF（含 GPS）不會被保留 */
-  function shrink(file, max) {
+  /* 縮圖：重新繪製到 canvas 再輸出 JPEG，EXIF（含 GPS）不會被保留。
+   * 一次產生兩張：大圖（點開才看，長邊 photoMaxPx）與小圖（列表與卡片用，長邊 thumbPx），大幅減少 Supabase 的流量 */
+  function shrinkSet(file, max) {
     return new Promise(function (ok, no) {
       var img = new Image(), u = URL.createObjectURL(file);
+      function draw(px, q) {
+        return new Promise(function (res, rej) {
+          var r = Math.min(1, px / Math.max(img.naturalWidth, img.naturalHeight));
+          var cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * r); cv.height = Math.round(img.naturalHeight * r);
+          cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+          cv.toBlob(function (b) { b ? res(b) : rej(new Error("照片轉檔失敗")); }, "image/jpeg", q);
+        });
+      }
       img.onload = function () {
-        var r = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-        var cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * r); cv.height = Math.round(img.naturalHeight * r);
-        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
-        URL.revokeObjectURL(u);
-        cv.toBlob(function (b) { b ? ok(b) : no(new Error("照片轉檔失敗")); }, "image/jpeg", 0.82);
+        Promise.all([draw(max, CFG.photoQuality || 0.8), draw(CFG.thumbPx || 480, CFG.thumbQuality || 0.72)])
+          .then(function (r) { URL.revokeObjectURL(u); ok({ full: r[0], thumb: r[1] }); }, function (e) { URL.revokeObjectURL(u); no(e); });
       };
       img.onerror = function () { URL.revokeObjectURL(u); no(new Error("無法讀取照片：" + file.name)); };
       img.src = u;

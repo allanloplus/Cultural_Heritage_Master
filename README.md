@@ -51,6 +51,17 @@
 | `supabase/schema.sql` | 資料表、觸發器、RLS 權限、統計檢視表、照片 bucket（可重複執行，也可用來升級） |
 | `supabase/migrations/002_ich_antiquity.sql` | 升級：加入無形文資與古物（已在使用中的資料庫執行這份即可） |
 
+## 照片
+
+照片存在 Supabase Storage 的 `visit-photos`（不在資料庫、也不在 GitHub）。上傳前在瀏覽器裡處理：移除 EXIF（含 GPS），並產生兩張：
+
+| | 長邊 | 約略大小 | 用途 |
+|---|---|---|---|
+| 大圖 `<…>.jpg` | 1280 像素 | 250 KB | 點開照片才載入 |
+| 小圖 `<…>-t.jpg` | 480 像素 | 40 KB | 首頁、列表、紀錄卡片 |
+
+尺寸與品質在 `assets/js/config.js`（`photoMaxPx`、`thumbPx`）。2026-11-07 以前上傳的照片沒有小圖，網頁會自動改用大圖。免費方案額度：儲存 1 GB（約 3,500 組照片）、每月流量 5 GB。
+
 ## Supabase 保持運作
 
 Supabase 免費方案的專案 7 天沒有資料庫活動就會被暫停。`.github/workflows/supabase-keepalive.yml` 每天臺灣時間 09:17、21:17 自動讀取一次公開資料（不寫入、不需要任何密碼），讓專案保持運作。
