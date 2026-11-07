@@ -1017,10 +1017,30 @@
 
   /* ---------- 啟動 ---------- */
   function boot() {
-    return Promise.all([loadIndex(), S.init()]).then(function () { return S.me(); }).then(function (m) { ME = m; renderChrome(); route(); })
-      .catch(function (e) { view.innerHTML = '<div class="notice bad">網站啟動失敗：' + esc(e.message || e) + "</div>"; console.error(e); });
+    document.documentElement.setAttribute("data-boot", "app");   // index.html 的逾時提示用來判斷卡在哪一步
+    view.innerHTML = '<div class="loading">' + araImg("think", "loading-face") + "<span>阿拉蕾正在準備網站…</span></div>";
+    return Promise.all([loadIndex(), S.init()]).then(function () { return S.me(); }).then(function (m) {
+      document.documentElement.setAttribute("data-boot", "done");
+      ME = m; renderChrome(); authNotice(); route();
+    }).catch(function (e) {
+      document.documentElement.setAttribute("data-boot", "done");
+      view.innerHTML = ara("confused", "網站啟動失敗：" + esc(e.message || e) + '<br><button class="btn btn-sm btn-p" onclick="location.reload()">重新整理</button>', { cls: "ara-lg" }); console.error(e);
+    });
+  }
+  /* 登入狀態讀取逾時（多半是同時開了很多本站分頁）：先以訪客身分顯示，提示使用者 */
+  function authNotice() {
+    var bar = $("#authBar");
+    var slow = S.authSlow && S.authSlow() && !ME;
+    if (!slow) { if (bar) bar.hidden = true; return; }
+    if (!bar) {
+      bar = document.createElement("div"); bar.id = "authBar"; bar.className = "demo-bar";
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+    bar.hidden = false;
+    bar.innerHTML = '<div class="wrap">' + araImg("confused", "toast-face") + "<span>登入狀態讀取比較慢，先以訪客身分開啟。達人請<b>關閉其他「文資達人訪查」分頁</b>後重新整理。</span>" +
+      '<button class="btn btn-sm" style="background:#fff8e6;color:#2b2521" onclick="location.reload()">重新整理</button></div>';
   }
   window.addEventListener("hashchange", route);
-  window.addEventListener("chv-auth", function () { S.me().then(function (m) { ME = m; renderChrome(); route(); }); });
+  window.addEventListener("chv-auth", function () { S.me().then(function (m) { ME = m; renderChrome(); authNotice(); route(); }); });
   boot();
 })();
