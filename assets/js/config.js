@@ -9,6 +9,9 @@ window.VISIT_CONFIG = {
   siteName: "文資達人訪查",
   knowledgeHome: "https://cultural.123hi.org/",   // 文資知識網站（入口頁）
   maxPhotos: 6,                                     // 每筆訪查紀錄最多幾張照片
-  photoMaxPx: 1600,                                 // 上傳前縮圖的長邊像素（同時移除 EXIF／GPS 資訊）
+  photoMaxPx: 1280,                                 // 上傳前縮圖的長邊像素（同時移除 EXIF／GPS 資訊），約 200–300 KB
+  photoQuality: 0.8,                                // 大圖 JPEG 品質
+  thumbPx: 480,                                     // 列表用小圖的長邊像素（與大圖一起上傳，檔名加 -t），約 30–50 KB
+  thumbQuality: 0.72,                               // 小圖 JPEG 品質
   staleDays: 730                                    // 最近一次訪查超過幾天算「需要回訪」
 };

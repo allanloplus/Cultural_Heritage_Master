@@ -140,7 +140,9 @@
       getVisit: function (id) { var v = db.visits.filter(function (x) { return x.id === id && visible(x); })[0]; return P(v ? withAuthor(v) : null); },
       saveVisit: function (data, photos) {
         var m = me();
-        return Promise.all((photos || []).map(function (p) { return blobToDataUrl(p.blob).then(function (u) { return { url: u, caption: p.caption, license: p.license }; }); }))
+        return Promise.all((photos || []).map(function (p) {
+          return Promise.all([blobToDataUrl(p.blob), p.thumb ? blobToDataUrl(p.thumb) : null]).then(function (u) { return { url: u[0], thumb: u[1], caption: p.caption, license: p.license }; });
+        }))
           .then(function (ph) {
             need(isExpert(), "只有核准的達人可以新增訪查紀錄");
             var v;
@@ -243,11 +245,14 @@
     var sb, profile = null, BUCKET = "visit-photos";
     function chk(r) { if (r.error) throw new Error(r.error.message); return r.data; }
     function photoUrl(path) { return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; }
+    /* 小圖與大圖放在一起，檔名加 -t（例如 123-0.jpg → 123-0-t.jpg）；舊照片沒有小圖，網頁會自動改用大圖 */
+    function thumbPath(path) { return path.replace(/\.jpg$/, "-t.jpg"); }
+    function withThumbs(paths) { return paths.reduce(function (a, p) { return a.concat([p, thumbPath(p)]); }, []); }
     var SEL = "*, author:profiles!visits_user_id_fkey(display_name), visit_photos(path, caption, license, ord)";
     function shape(v) {
       v.author = v.author ? v.author.display_name : "";
       v.photos = (v.visit_photos || []).sort(function (a, b) { return a.ord - b.ord; })
-        .map(function (p) { return { url: photoUrl(p.path), path: p.path, caption: p.caption, license: p.license }; });
+        .map(function (p) { return { url: photoUrl(p.path), thumb: photoUrl(thumbPath(p.path)), path: p.path, caption: p.caption, license: p.license }; });
       delete v.visit_photos; return v;
     }
     function loadProfile() {
@@ -298,14 +303,17 @@
               if (!gone.length) return;
               return Promise.all([
                 sb.from("visit_photos").delete().in("id", gone.map(function (g) { return g.id; })),
-                sb.storage.from(BUCKET).remove(gone.map(function (g) { return g.path; }))
+                sb.storage.from(BUCKET).remove(withThumbs(gone.map(function (g) { return g.path; })))
               ]);
             }));
           }
           var base = (keep || []).length;
           (photos || []).forEach(function (p, i) {
             var path = profile.id + "/" + v.id + "/" + Date.now() + "-" + i + ".jpg";
-            jobs.push(sb.storage.from(BUCKET).upload(path, p.blob, { contentType: "image/jpeg", upsert: false }).then(chk).then(function () {
+            jobs.push(Promise.all([
+              sb.storage.from(BUCKET).upload(path, p.blob, { contentType: "image/jpeg", upsert: false }).then(chk),
+              p.thumb ? sb.storage.from(BUCKET).upload(thumbPath(path), p.thumb, { contentType: "image/jpeg", upsert: false }).then(chk) : null
+            ]).then(function () {
               return sb.from("visit_photos").insert({ visit_id: v.id, path: path, caption: p.caption, license: p.license, ord: base + i }).then(chk);
             }));
           });
@@ -317,7 +325,7 @@
       },
       deleteVisit: function (id) {
         return sb.from("visit_photos").select("path").eq("visit_id", id).then(chk).then(function (ph) {
-          return (ph.length ? sb.storage.from(BUCKET).remove(ph.map(function (p) { return p.path; })) : Promise.resolve())
+          return (ph.length ? sb.storage.from(BUCKET).remove(withThumbs(ph.map(function (p) { return p.path; }))) : Promise.resolve())
             .then(function () { return sb.from("visits").delete().eq("id", id).then(chk); });
         });
       },
