@@ -255,19 +255,51 @@
         .map(function (p) { return { url: photoUrl(p.path), thumb: photoUrl(thumbPath(p.path)), path: p.path, caption: p.caption, license: p.license }; });
       delete v.visit_photos; return v;
     }
+    /* 讀取登入者：用 getSession（本機讀取，token 過期才連線換新），比 getUser（每次連線）快，也比較不會卡。
+     * 資料權限一律由伺服器端 RLS 驗證，前端只用來決定畫面。 */
     function loadProfile() {
-      return sb.auth.getUser().then(function (r) {
-        var u = r.data && r.data.user;
+      return sb.auth.getSession().then(function (r) {
+        var u = r.data && r.data.session && r.data.session.user;
         if (!u) { profile = null; return null; }
         return sb.from("profiles").select("*").eq("id", u.id).single().then(function (x) { profile = x.data || null; if (profile) profile.email = u.email; return profile; });
       });
     }
+    /* 登入狀態的鎖只在本分頁內排隊。supabase-js 預設用瀏覽器的 navigator.locks 跨分頁共用一把鎖，
+     * iPhone／iPad 的 Safari 核心在背景分頁被暫停時可能一直不放鎖，新開的分頁就永遠停在「載入中」 */
+    var LOCKS = {};
+    function tabLock(name, acquireTimeout, fn) {
+      var prev = LOCKS[name] || Promise.resolve();
+      var run = prev.then(fn, fn);
+      LOCKS[name] = run.then(function () {}, function () {});
+      return run;
+    }
+    function notify() { window.dispatchEvent(new Event("chv-auth")); }
+    var authSlow = false;
     return {
       mode: "supabase",
+      authSlow: function () { return authSlow; },
       init: function () {
-        sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
-        sb.auth.onAuthStateChange(function (ev) { if (ev === "SIGNED_IN" || ev === "SIGNED_OUT") loadProfile().then(function () { window.dispatchEvent(new Event("chv-auth")); }); });
-        return loadProfile();
+        var main = sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { lock: tabLock } });
+        // 事件處理裡不能直接呼叫其他 auth 方法（會和觸發事件的那個呼叫互等），延到下一輪再做
+        sb.auth.onAuthStateChange(function (ev) {
+          if (ev === "SIGNED_IN" || ev === "SIGNED_OUT") setTimeout(function () { loadProfile().then(notify, notify); }, 0);
+        });
+        // 8 秒內讀不到登入狀態（例如換新 token 的連線卡住），先以訪客身分開啟網站：
+        // 改用一個不帶登入資訊的連線讀公開資料（否則每個查詢都會等那個卡住的 token）；之後登入狀態讀到了再換回來、更新畫面
+        var settled = false;
+        function back() { sb = main; authSlow = false; notify(); }
+        var real = loadProfile().then(function (p) { if (settled) back(); settled = true; return p; },
+          function (e) { console.warn("讀取登入狀態失敗", e); profile = null; if (settled) back(); settled = true; return null; });
+        var timer = new Promise(function (ok) {
+          setTimeout(function () {
+            if (settled) return;
+            settled = true; authSlow = true; profile = null;
+            sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey,
+              { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "chv-visitor", lock: tabLock } });
+            ok(null);
+          }, 8000);
+        });
+        return Promise.race([real, timer]);
       },
       me: function () { return Promise.resolve(profile); },
       signIn: function (email) {
