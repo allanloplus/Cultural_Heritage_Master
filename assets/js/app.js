@@ -39,6 +39,7 @@
   function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
   var MOOD_FACE = { "驚喜": "surprised", "感動": "thumb", "愉快": "laugh", "普通": "think", "可惜": "sad" };
   function toast(msg, mood) {
+    $$(".toast").forEach(function (x) { x.parentNode.removeChild(x); });   // 新訊息取代舊的，避免重疊
     var t = document.createElement("div"); t.className = "toast" + (mood ? " toast-ara" : "");
     t.innerHTML = (mood ? araImg(mood, "toast-face") : "") + "<span>" + esc(msg) + "</span>";
     document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3600);
@@ -368,7 +369,7 @@
         '<div class="tabs kind-tabs">' + KINDS.map(function (x) {
           return '<a class="tab' + (x === kind ? " on" : "") + '" href="#county/' + slug + "/" + x + '">' + KIND[x].label + ' <small>' + all[x].visited + "/" + all[x].total + "</small></a>";
         }).join("") + "</div>" +
-        '<form class="card form" id="tripForm" hidden style="margin-top:12px"><h3>規劃訪查行程</h3><p class="small muted">在下方清單勾選這趟要去的地方（可以切換有形文資、無形文資、古物分頁一起勾選，也可用類別、地點、「尚未' + V + '」篩選），再填行程名稱與日期，一次登記成預計到訪。到現場後在「我的訪查」逐一填寫紀錄。</p>' +
+        '<form class="card form" id="tripForm" hidden style="margin-top:12px"><h3>' + (TRIP_FORM.addTo && TRIP_OPEN === slug ? "加入行程「" + esc(TRIP_FORM.trip) + "」" : "規劃訪查行程") + "</h3>" + '<p class="small muted">在下方清單勾選這趟要去的地方（可以切換有形文資、無形文資、古物分頁一起勾選，也可用類別、地點、「尚未' + V + '」篩選），再填行程名稱與日期，一次登記成預計到訪。到現場後在「我的訪查」逐一填寫紀錄。</p>' +
         '<div class="row"><label>行程名稱<input type="text" name="trip" required maxlength="40" placeholder="例如：2026 ' + esc(c.label.replace(/（.*）/, "")) + '行"></label><label>開始日<input type="date" name="d1" required></label><label>結束日<input type="date" name="d2" required></label></div>' +
         '<p><b id="pickCnt">已勾選 0 筆</b>　<button type="button" class="btn btn-sm" id="pickClr">清除勾選</button></p><div class="btns"><button class="btn btn-p">登記行程</button><button type="button" class="btn" id="tripCancel">取消</button></div></form>' +
         (k.total === 0 ? ara("think", esc(c.label) + "的知識網站目前沒有收錄" + KD.label + "喔，看看其他分頁吧！") :
@@ -426,8 +427,17 @@
           var ids = Object.keys(picked);
           if (!ids.length) return toast("請在清單勾選至少一筆");
           if (tf.d2.value < tf.d1.value) return toast("結束日不能早於開始日");
-          S.savePlans(ids.map(function (sid) { var x = SITE[slug + "/" + sid]; return { county_slug: slug, site_id: sid, site_name: x.name, kind: x.kind, planned_date: tf.d1.value, planned_end: tf.d2.value, trip: tf.trip.value.trim() }; }))
-            .then(function () { Object.keys(picked).forEach(function (x) { delete picked[x]; }); TRIP_OPEN = null; TRIP_FORM = {}; toast("行程登記好了！共 " + ids.length + " 筆，一路順風～", "fight"); location.hash = "#mine"; }).catch(fail);
+          var tripName = tf.trip.value.trim();
+          // 同一個行程裡已經預計中的項目不重複登記
+          var dup = {}; plans.forEach(function (p) { if (ME && p.user_id === ME.id && p.status === "planned" && p.trip === tripName) dup[p.site_id] = 1; });
+          var add = ids.filter(function (sid) { return !dup[sid]; }), skipped = ids.length - add.length;
+          if (!add.length) return toast("勾選的項目都已經在「" + tripName + "」裡了", "think");
+          S.savePlans(add.map(function (sid) { var x = SITE[slug + "/" + sid]; return { county_slug: slug, site_id: sid, site_name: x.name, kind: x.kind, planned_date: tf.d1.value, planned_end: tf.d2.value, trip: tripName }; }))
+            .then(function () {
+              Object.keys(picked).forEach(function (x) { delete picked[x]; }); TRIP_OPEN = null; TRIP_FORM = {};
+              toast((add.length ? "已登記 " + add.length + " 筆到「" + tripName + "」" : "") + (skipped ? "（" + skipped + " 筆原本就在行程裡）" : "") + "，一路順風～", "fight");
+              location.hash = "#mine";
+            }).catch(fail);
         };
         if (TRIP_OPEN === slug) tb.onclick();   // 切換分頁時保留勾選中的行程
       }
@@ -436,14 +446,35 @@
     });
   };
   var PICKED = {}, TRIP_OPEN = null, TRIP_FORM = {};
+  /* 開始規劃行程：到縣市頁並打開勾選模式。preset＝{trip, d1, d2, addTo}，addTo 為 true 表示加入既有行程 */
+  function startTrip(slug, preset) {
+    TRIP_OPEN = slug; TRIP_FORM = preset || {}; PICKED[slug] = {};
+    var h = "#county/" + slug;
+    if (location.hash === h) route(); else location.hash = h;
+  }
+  function countySelect(id, sel) {
+    return '<select id="' + id + '">' + IDX.counties.map(function (c) { return '<option value="' + c.slug + '"' + (c.slug === sel ? " selected" : "") + ">" + esc(c.label) + "</option>"; }).join("") + "</select>";
+  }
+  /* 我的行程清單（依行程名稱分組，只算還有預計中項目的） */
+  function myTrips(plans) {
+    var m = {};
+    plans.forEach(function (p) {
+      if (!p.trip || p.status === "cancelled") return;
+      var t = m[p.trip] || (m[p.trip] = { name: p.trip, d1: p.planned_date, d2: planEnd(p), open: 0 });
+      if (p.planned_date < t.d1) t.d1 = p.planned_date;
+      if (planEnd(p) > t.d2) t.d2 = planEnd(p);
+      if (p.status === "planned") t.open++;
+    });
+    return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return a.d1 < b.d1 ? -1 : 1; });
+  }
 
   /* ---------- 單一文資 ---------- */
   ROUTES.site = function (slug, id) {
     var s = site(slug, id), c = COUNTY[slug];
     if (!s) { view.innerHTML = ara("confused", "找不到這筆文化資產（" + esc(slug + "/" + id) + '）。可能是文資知識網站已更新編號，請回<a href="#coverage">查核資訊</a>查詢。', { cls: "ara-lg" }); return; }
     var KD = K(s), V = KD.verb, ven = s.venue, rel = ven && ven.relatedSiteId && site(slug, ven.relatedSiteId);
-    return Promise.all([S.listVisits({ county: slug, site: id }), S.listPlans({ county: slug, site: id })]).then(function (r) {
-      var visits = r[0], plans = r[1].filter(function (p) { return p.status === "planned"; });
+    return Promise.all([S.listVisits({ county: slug, site: id }), S.listPlans({ county: slug, site: id }), isExpert() ? S.listPlans({ user: ME.id }) : []]).then(function (r) {
+      var visits = r[0], plans = r[1].filter(function (p) { return p.status === "planned"; }), trips = myTrips(r[2]);
       var pub = visits.filter(function (v) { return v.status === "published"; });
       var last = pub[0], avg = pub.length ? pub.reduce(function (a, v) { return a + v.recommend; }, 0) / pub.length : 0;
       var myPlan = ME && plans.filter(function (p) { return p.user_id === ME.id; })[0];
@@ -467,17 +498,33 @@
           '<a class="btn" href="#apply">成為達人來更新這裡</a>') +
         (s.url ? '<a class="btn" href="' + esc(s.url) + '" target="_blank" rel="noopener">文資局官方資料 ↗</a>' : "") +
         (s.lat ? '<a class="btn" href="https://www.google.com/maps/dir/?api=1&destination=' + s.lat + "," + s.lng + '" target="_blank" rel="noopener">導航</a>' : "") + "</div>" +
-        '<form class="card form" id="planForm" hidden style="margin-top:12px"><h3>登記預計到訪</h3><div class="row"><label>預計日期<input type="date" name="d" required min="' + today() + '"></label><label>備註<input type="text" name="n" maxlength="200" placeholder="例如：配合週末導覽場次"></label></div><div class="btns"><button class="btn btn-p">登記</button></div></form>' +
+        '<form class="card form" id="planForm" hidden style="margin-top:12px"><h3>登記預計到訪</h3><div class="row">' +
+          '<label>加入行程<select name="t"><option value="">（不加入行程）</option>' + trips.map(function (t, i) { return '<option value="' + i + '">' + esc(t.name) + "（" + t.d1 + " ～ " + t.d2.slice(5) + "）</option>"; }).join("") + '<option value="new">＋ 新的行程…</option></select></label>' +
+          '<label id="tnW" hidden>新行程名稱<input type="text" name="tn" maxlength="40"></label>' +
+          '<label>預計日期<input type="date" name="d" required min="' + today() + '"></label><label>結束日<small>多天行程才需要</small><input type="date" name="d2"></label>' +
+          '<label>備註<input type="text" name="n" maxlength="200" placeholder="例如：配合週末導覽場次"></label></div><div class="btns"><button class="btn btn-p">登記</button></div></form>' +
         (plans.length ? '<p class="muted small" style="margin-top:10px">已登記預計到訪：' + plans.map(function (p) { return '<a href="#expert/' + p.user_id + '">' + esc(p.author) + "</a>（" + planRange(p) + "）"; }).join("、") + "</p>" : "") +
         (near.length ? '<section class="sec"><h2>達人的附近推薦</h2><p class="muted small">美食、住宿、交通等資訊來自達人訪查當時的經驗，可能已有變動。</p>' + nearbyList(near, true) + "</section>" : "") +
         '<section class="sec"><h2>' + V + "紀錄</h2>" + (visits.length ? visits.map(function (v) { return visitCard(v); }).join("") : '<p class="empty">還沒有紀錄</p>') + "</section>";
       bindPhotos(view);
       var pb = $("#planBtn"), pf = $("#planForm");
       if (pb) pb.onclick = function () { pf.hidden = false; pb.hidden = true; };
-      if (pf) pf.onsubmit = function (e) {
-        e.preventDefault();
-        S.savePlan({ county_slug: slug, site_id: id, site_name: s.name, kind: kindOf(s), planned_date: pf.d.value, note: pf.n.value }).then(function () { toast("登記好了，等你的訪查心得喔！", "thumb"); route(); }).catch(fail);
-      };
+      if (pf) {
+        pf.t.onchange = function () {
+          var t = trips[+pf.t.value];
+          $("#tnW").hidden = pf.t.value !== "new";
+          if (t) { pf.d.value = t.d1; pf.d2.value = t.d2; }
+        };
+        pf.d.onchange = function () { if (pf.d2.value && pf.d2.value < pf.d.value) pf.d2.value = pf.d.value; pf.d2.min = pf.d.value; };
+        pf.onsubmit = function (e) {
+          e.preventDefault();
+          var t = trips[+pf.t.value], trip = pf.t.value === "new" ? pf.tn.value.trim() : t ? t.name : null;
+          if (pf.t.value === "new" && !trip) return toast("請填新行程的名稱");
+          if (pf.d2.value && pf.d2.value < pf.d.value) return toast("結束日不能早於開始日");
+          S.savePlan({ county_slug: slug, site_id: id, site_name: s.name, kind: kindOf(s), planned_date: pf.d.value, planned_end: pf.d2.value || null, trip: trip, note: pf.n.value })
+            .then(function () { toast(trip ? "已加入「" + trip + "」！" : "登記好了，等你的訪查心得喔！", "thumb"); route(); }).catch(fail);
+        };
+      }
     });
   };
 
@@ -760,35 +807,101 @@
       var mineLine = !isExpert() ? "" : now.length ? ara("fight", "<b>行程進行中！</b>今天還有 " + now.length + " 處可以訪查，按「填寫紀錄」就能邊走邊記～")
         : open.length ? ara("present", "你有 <b>" + open.length + "</b> 處預計到訪，最近的是 " + open[0].planned_date + " 的 " + siteLink(open[0]) + "。")
         : visits.length ? ara("thumb", "已經寫了 <b>" + visits.length + "</b> 篇紀錄，太棒了！下一趟要去哪裡呢？")
-        : ara("explain", "還沒有行程喔！到縣市頁按「規劃訪查行程」，一次勾選要去的文資。");
+        : ara("explain", "還沒有行程喔！在下面選一個縣市、按「開始規劃」，一次勾選要去的文資。");
       view.innerHTML = "<h1>我的訪查</h1>" + mineLine +
-        (isExpert() ? '<div class="btns"><a class="btn btn-warm" href="#coverage">找文資去訪查</a></div>' +
+        (isExpert() ? '<div class="card trip-new"><h3>＋ 規劃新行程</h3><p class="small muted">選一個縣市，到該縣市的清單勾選要去的有形文資、無形文資或古物，填上行程名稱與日期即可。</p>' +
+            '<div class="btns">' + countySelect("newTripCounty", ((plans[0] || {}).county_slug) || (ME.regions || [])[0] || "taipei-city") + '<button class="btn btn-warm" id="newTripBtn">開始規劃</button><a class="btn" href="#coverage">看查核資訊找目標</a></div></div>' +
           '<section class="sec"><h2>我的訪查行程與預計到訪</h2>' + (plans.length ? tripGroups(plans, t) : '<p class="muted">還沒有登記。到縣市頁按「規劃訪查行程」一次勾選多處，或在文資頁按「登記預計到訪」。</p>') + "</section>" +
           '<section class="sec"><h2>我的紀錄（' + visits.length + "）</h2>" + (visits.length ? visits.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : '<p class="empty muted">還沒有紀錄</p>') + "</section>"
           : '<div class="card"><p>你目前是一般會員。成為文資達人後才能新增訪查紀錄。</p>' + (apps.length ? "<p>申請狀態：" + apps.map(function (a) { return a.created_at.slice(0, 10) + " " + ({ pending: "審查中", approved: "已核准", rejected: "未通過" })[a.status] + (a.review_note ? "（" + esc(a.review_note) + "）" : ""); }).join("；") + "</p>" : "") + '<a class="btn btn-warm" href="#apply">申請成為達人</a></div>') +
         '<section class="sec"><h2>個人資料</h2><form class="card form" id="pf"><label>公開署名<input type="text" name="n" required maxlength="40" value="' + esc(ME.display_name) + '"></label>' +
         '<label>簡介<input type="text" name="b" maxlength="300" value="' + esc(ME.bio || "") + '"></label><div class="btns"><button class="btn btn-p">儲存</button></div></form></section>';
       bindPhotos(view);
-      $$("[data-cancel]").forEach(function (b) { b.onclick = function () { S.updatePlan(b.dataset.cancel, { status: "cancelled" }).then(function () { toast("已取消這處預計到訪", "sad"); route(); }).catch(fail); }; });
+      bindTrips(plans);
+      var nb = $("#newTripBtn"); if (nb) nb.onclick = function () { startTrip($("#newTripCounty").value, {}); };
       $("#pf").onsubmit = function (e) { e.preventDefault(); S.updateProfile({ display_name: this.n.value.trim(), bio: this.b.value.trim(), regions: ME.regions || [] }).then(function (m) { ME = m; renderChrome(); toast("個人資料已儲存", "thumb"); }).catch(fail); };
     });
   };
 
+  function tripRank(groups, k) { return groups[k].some(function (p) { return p.status === "planned"; }) ? (k === "" ? 1 : 0) : 2; }
   function tripGroups(plans, t) {
     var groups = {}, order = [];
-    plans.forEach(function (p) { var k = p.trip || "（未分行程）"; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(p); });
-    return order.map(function (k) {
+    plans.forEach(function (p) { var k = p.trip || ""; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(p); });
+    // 排序：有預計中項目的行程在前，未分行程其次，全部取消或完成的行程最後（bindTrips 用同一個順序）
+    order.sort(function (a, b) { return tripRank(groups, a) - tripRank(groups, b); });
+    return order.map(function (k, gi) {
       var ps = groups[k], done = ps.filter(function (p) { return p.status === "done"; }).length, live = ps.filter(function (p) { return p.status !== "cancelled"; });
-      var first = ps[0], rt = routeUrl(live.filter(function (p) { return p.status === "planned"; }).map(function (p) { return site(p.county_slug, p.site_id); }));
-      return '<div class="card" style="margin-bottom:14px"><div class="visit-h"><h3>' + esc(k) + '</h3><span class="muted small">' + (first.trip ? planRange(first) + "・" : "") + "完成 " + done + " / " + live.length + "</span></div>" +
+      var open = ps.filter(function (p) { return p.status === "planned"; });
+      var d1 = live.reduce(function (m, p) { return !m || p.planned_date < m ? p.planned_date : m; }, ""), d2 = live.reduce(function (m, p) { return planEnd(p) > m ? planEnd(p) : m; }, "");
+      var rt = routeUrl(open.map(function (p) { return site(p.county_slug, p.site_id); }));
+      var county0 = (live[0] || ps[0]).county_slug;
+      return '<div class="card trip" data-g="' + gi + '" style="margin-bottom:14px"><div class="visit-h"><h3>' + (k ? esc(k) : "（未分行程）") + '</h3><span class="muted small">' + (k && d1 ? d1 + (d2 !== d1 ? " ～ " + d2.slice(5) : "") + "・" : "") + "完成 " + done + " / " + live.length + "</span></div>" +
         '<div class="bar" style="margin:6px 0 10px"><i style="width:' + pct(done, live.length) + '%"></i></div>' +
-        (rt ? '<p><a class="btn btn-sm" href="' + rt + '" target="_blank" rel="noopener">在 Google 地圖開啟未完成景點的路線</a></p>' : "") +
+        '<div class="btns trip-acts">' +
+          '<span class="trip-add">' + countySelect("ta-" + gi, county0) + '<button class="btn btn-sm btn-warm" data-tadd="' + gi + '">＋ 加入更多文資</button></span>' +
+          '<button class="btn btn-sm" data-tedit="' + gi + '">' + (k ? "編輯行程" : "編成行程") + "</button>" +
+          (rt ? '<a class="btn btn-sm" href="' + rt + '" target="_blank" rel="noopener">Google 地圖路線</a>' : "") +
+          (k && open.length ? '<button class="btn btn-sm btn-bad" data-tcancel="' + gi + '">取消整個行程</button>' : "") + "</div>" +
+        '<form class="form trip-edit" data-tform="' + gi + '" hidden><div class="row"><label>行程名稱<input type="text" name="name" required maxlength="40" value="' + esc(k) + '"></label>' +
+          '<label>開始日<input type="date" name="d1" required value="' + esc(d1) + '"></label><label>結束日<input type="date" name="d2" required value="' + esc(d2 || d1) + '"></label></div>' +
+          '<p class="small muted">' + (k ? "名稱與日期會套用到這個行程的所有項目。" : "這些預計到訪會合併成一個行程，套用相同的日期。") + '</p><div class="btns"><button class="btn btn-sm btn-p">儲存</button><button type="button" class="btn btn-sm" data-tclose="' + gi + '">取消</button></div></form>' +
         '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>文資</th><th>狀態</th><th></th></tr></thead><tbody>' + ps.map(function (p) {
           var st = p.status === "done" ? '<span class="tag st-published">已完成</span>' : p.status === "cancelled" ? '<span class="tag">已取消</span>' : planEnd(p) < t ? '<span class="tag st-rejected">逾期</span>' : '<span class="tag st-pending">預計中</span>';
-          return "<tr><td>" + planRange(p) + "</td><td>" + siteLink(p) + ' <small class="muted">' + esc((site(p.county_slug, p.site_id) || {}).town || "") + "</small></td><td>" + st + "</td><td>" +
-            (p.status === "planned" ? '<a class="btn btn-sm btn-warm" href="#submit/' + p.county_slug + "/" + encodeURIComponent(p.site_id) + '">填寫紀錄</a> <button class="btn btn-sm" data-cancel="' + p.id + '">取消</button>' : p.visit_id ? '<a class="btn btn-sm" href="#visit/' + p.visit_id + '">看紀錄</a>' : "") + "</td></tr>";
+          var it = site(p.county_slug, p.site_id) || {};
+          return '<tr data-pid="' + p.id + '"><td class="pdate">' + planRange(p) + "</td><td>" + siteLink(p) + " " + kindTag(p) + ' <small class="muted">' + esc(it.town || (it.venue ? it.venue.name : "")) + "</small></td><td>" + st + "</td><td class=\"pacts\">" +
+            (p.status === "planned" ? '<a class="btn btn-sm btn-warm" href="#submit/' + p.county_slug + "/" + encodeURIComponent(p.site_id) + '">填寫紀錄</a> <button class="btn btn-sm" data-pdate="' + p.id + '">改日期</button> <button class="btn btn-sm" data-cancel="' + p.id + '">取消</button>'
+              : p.status === "cancelled" ? '<button class="btn btn-sm" data-restore="' + p.id + '">恢復</button>'
+              : p.visit_id ? '<a class="btn btn-sm" href="#visit/' + p.visit_id + '">看紀錄</a>' : "") + "</td></tr>";
         }).join("") + "</tbody></table></div></div>";
     }).join("");
+  }
+  function bindTrips(plans) {
+    var groups = {}, order = [];
+    plans.forEach(function (p) { var k = p.trip || ""; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(p); });
+    order.sort(function (a, b) { return tripRank(groups, a) - tripRank(groups, b); });
+    function grp(el, attr) { var k = order[+el.getAttribute(attr)]; return { name: k, ps: groups[k] }; }
+    $$("[data-tadd]").forEach(function (b) {
+      b.onclick = function () {
+        var g = grp(b, "data-tadd"), live = g.ps.filter(function (p) { return p.status !== "cancelled"; });
+        var d1 = live.reduce(function (m, p) { return !m || p.planned_date < m ? p.planned_date : m; }, ""), d2 = live.reduce(function (m, p) { return planEnd(p) > m ? planEnd(p) : m; }, "");
+        startTrip($("#ta-" + b.dataset.tadd).value, g.name ? { trip: g.name, d1: d1, d2: d2 || d1, addTo: true } : {});
+      };
+    });
+    $$("[data-tedit]").forEach(function (b) { b.onclick = function () { $('[data-tform="' + b.dataset.tedit + '"]').hidden = false; }; });
+    $$("[data-tclose]").forEach(function (b) { b.onclick = function () { $('[data-tform="' + b.dataset.tclose + '"]').hidden = true; }; });
+    $$("[data-tform]").forEach(function (f) {
+      f.d1.onchange = function () { if (f.d2.value < f.d1.value) f.d2.value = f.d1.value; f.d2.min = f.d1.value; };
+      f.onsubmit = function (e) {
+        e.preventDefault();
+        var g = grp(f, "data-tform"), name = f.name.value.trim();
+        if (f.d2.value < f.d1.value) return toast("結束日不能早於開始日");
+        if (name !== g.name && groups[name]) { if (!confirm("已經有一個叫「" + name + "」的行程，要合併在一起嗎？")) return; }
+        S.updatePlans(g.ps.map(function (p) { return p.id; }), { trip: name, planned_date: f.d1.value, planned_end: f.d2.value })
+          .then(function () { toast("行程已更新", "thumb"); route(); }).catch(fail);
+      };
+    });
+    $$("[data-tcancel]").forEach(function (b) {
+      b.onclick = function () {
+        var g = grp(b, "data-tcancel"), ids = g.ps.filter(function (p) { return p.status === "planned"; }).map(function (p) { return p.id; });
+        if (!confirm("取消「" + g.name + "」裡還沒完成的 " + ids.length + " 筆預計到訪？已完成的紀錄不受影響。")) return;
+        S.updatePlans(ids, { status: "cancelled" }).then(function () { toast("已取消行程「" + g.name + "」", "sad"); route(); }).catch(fail);
+      };
+    });
+    $$("[data-cancel]").forEach(function (b) { b.onclick = function () { S.updatePlan(b.dataset.cancel, { status: "cancelled" }).then(function () { toast("已取消這處預計到訪", "sad"); route(); }).catch(fail); }; });
+    $$("[data-restore]").forEach(function (b) { b.onclick = function () { S.updatePlan(b.dataset.restore, { status: "planned" }).then(function () { toast("恢復了！", "laugh"); route(); }).catch(fail); }; });
+    $$("[data-pdate]").forEach(function (b) {
+      b.onclick = function () {
+        var p = plans.filter(function (x) { return x.id === b.dataset.pdate; })[0], tr = $('[data-pid="' + p.id + '"]');
+        $(".pdate", tr).innerHTML = '<input type="date" class="pd1" value="' + p.planned_date + '"> ～ <input type="date" class="pd2" value="' + planEnd(p) + '">';
+        $(".pacts", tr).innerHTML = '<button class="btn btn-sm btn-p psave">儲存</button> <button class="btn btn-sm pcancel">取消</button>';
+        $(".pcancel", tr).onclick = route;
+        $(".psave", tr).onclick = function () {
+          var a = $(".pd1", tr).value, z = $(".pd2", tr).value || a;
+          if (!a) return toast("請選日期"); if (z < a) return toast("結束日不能早於開始日");
+          S.updatePlan(p.id, { planned_date: a, planned_end: z }).then(function () { toast("日期已更新", "thumb"); route(); }).catch(fail);
+        };
+      };
+    });
   }
 
   /* ---------- 申請成為達人 ---------- */

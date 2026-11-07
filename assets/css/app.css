@@ -262,3 +262,12 @@ h2 { display: flex; align-items: center; gap: 8px; }
 .venue-line { background: var(--paper-2); border-radius: 10px; padding: 8px 12px; }
 .kind-pick { margin-bottom: 8px; }
 .cond-傳承活躍, .cond-穩定傳承 { color: var(--good); } .cond-傳承人少, .cond-待修護 { color: var(--warn); } .cond-式微或停辦, .cond-未能看到 { color: var(--bad); }
+
+/* 行程管理 */
+.trip-new { margin: 10px 0 18px; border-left: 5px solid var(--peach); }
+.trip-new h3, .trip h3 { margin: 0 0 4px; }
+.trip-new select, .trip-add select { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--card); }
+.trip-acts { margin-bottom: 10px; }
+.trip-add { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.trip-edit { background: var(--paper-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.pdate input[type=date] { border: 1px solid var(--line); border-radius: 8px; padding: 2px 4px; background: var(--card); max-width: 140px; }

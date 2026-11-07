@@ -6,7 +6,7 @@
  *   listVisits({county, site, user, status, limit}) / getVisit(id) / saveVisit(data, photos) / deleteVisit(id) / reviewVisit(id, status, note)
  *   siteStats() → { "slug/id": {visits, last_visit, avg_recommend, last_condition, last_open_status} }
  *   expertStats() / listProfiles() / setRole(id, role, trusted)
- *   listPlans({user, county, site}) / savePlan(data) / savePlans([data]) / updatePlan(id, patch)
+ *   listPlans({user, county, site}) / savePlan(data) / savePlans([data]) / updatePlan(id, patch) / updatePlans([id], patch)
  *     預計到訪可帶 trip（行程名稱）與 planned_end（行程結束日），同一趟行程的多處文資一起登記
  *   applyExpert(data) / myApplications() / listApplications(status) / reviewApplication(id, status, note)
  *   auditLog()
@@ -201,6 +201,11 @@
         var out = list.map(function (d) { var p = Object.assign({ id: uuid(), user_id: db.session, status: "planned", visit_id: null, created_at: new Date().toISOString() }, d); db.plans.push(p); return p; });
         save(); return P(out);
       },
+      updatePlans: function (ids, patch) {
+        var ps = db.plans.filter(function (x) { return ids.indexOf(x.id) >= 0; });
+        need(ps.every(function (p) { return p.user_id === db.session; }), "只能修改自己的預計到訪");
+        ps.forEach(function (p) { Object.assign(p, patch); }); save(); return P(ps);
+      },
       updatePlan: function (id, patch) {
         var p = db.plans.filter(function (x) { return x.id === id; })[0];
         need(p && p.user_id === db.session, "只能修改自己的預計到訪");
@@ -336,6 +341,7 @@
       savePlan: function (d) { return sb.from("visit_plans").insert(d).select().single().then(chk); },
       savePlans: function (list) { return sb.from("visit_plans").insert(list).select().then(chk); },
       updatePlan: function (id, patch) { return sb.from("visit_plans").update(patch).eq("id", id).select().single().then(chk); },
+      updatePlans: function (ids, patch) { return ids.length ? sb.from("visit_plans").update(patch).in("id", ids).select().then(chk) : Promise.resolve([]); },
       applyExpert: function (d) { return sb.from("expert_applications").insert(Object.assign({ user_id: profile.id }, d)).select().single().then(chk); },
       myApplications: function () { return profile ? sb.from("expert_applications").select("*").eq("user_id", profile.id).then(chk) : Promise.resolve([]); },
       listApplications: function (status) {
