@@ -683,7 +683,7 @@
         '<fieldset><legend>推薦指數</legend><label>推薦實際參訪指數（必填）' + rate("recommend", v.recommend, true) + "</label>" +
         '<div class="row">' + Object.keys(SCORE).map(function (k) { return "<label>" + SCORE[k] + rate("s_" + k, sc[k]) + "</label>"; }).join("") + "</div></fieldset>" +
         '<label>當天心情<select name="mood"><option value="">—</option>' + Object.keys(MOODS).map(function (m) { return '<option value="' + m + '"' + (v.mood === m ? " selected" : "") + ">" + MOODS[m] + " " + m + "</option>"; }).join("") + "</select></label>" +
-        '<label>參訪心得<small>至少 30 字。請描述實際看到的狀況，避免抄錄知識網站或官方說明。</small><textarea name="body" required minlength="30" maxlength="5000">' + esc(v.body || "") + "</textarea></label>" +
+        '<label>參訪心得<small>長短不拘，簡單幾句也可以。請描述實際看到的狀況，避免抄錄知識網站或官方說明。</small><textarea name="body" required maxlength="5000">' + esc(v.body || "") + "</textarea></label>" +
         '<label>參訪建議<small>交通、停車、最佳時段、注意事項</small><input type="text" name="tips" maxlength="500" value="' + esc(v.tips || "") + '"></label>' +
         '<fieldset><legend>附近推薦</legend><p class="small muted">順路的美食、住宿、交通方式或其他景點，幫下一位訪客規劃。連結請貼店家官網、Google 地圖或粉專網址。</p><div id="nbList" class="form"></div>' +
         '<p style="margin-top:8px"><button type="button" class="btn btn-sm" id="nbAdd">＋ 新增一筆推薦</button></p></fieldset>' +
@@ -757,6 +757,7 @@
         pick();
         if (!chosen) return toast("請從清單選擇一筆" + KIND[curKind()].label);
         if (!f.querySelector('[name=recommend]:checked')) return toast("請選擇推薦指數");
+        if (!f.body.value.trim()) { f.body.focus(); return toast("寫幾句參訪心得吧，一句話也可以！", "think"); }
         var scores = {};
         Object.keys(SCORE).forEach(function (k) { var x = f.querySelector('[name=s_' + k + ']:checked'); if (x) scores[k] = +x.value; });
         var data = {

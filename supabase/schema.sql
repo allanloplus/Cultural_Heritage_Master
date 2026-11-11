@@ -147,7 +147,7 @@ create table if not exists public.visits (
   mode          text,                         -- 無形文資的參與方式
   recommend     smallint not null check (recommend between 1 and 5),
   scores        jsonb not null default '{}',  -- {history, preserve, interpret, friendly, access} 各 1–5
-  body          text not null check (char_length(body) between 30 and 5000),
+  body          text not null,                -- 參訪心得：必填，1–5000 字（檢查條件見下方升級 003）
   tips          text,
   fee           text,
   duration_min  smallint check (duration_min between 5 and 1440),
@@ -244,6 +244,9 @@ alter table public.visits add constraint visits_kind_values check (
 );
 alter table public.visit_plans drop constraint if exists visit_plans_kind_values;
 alter table public.visit_plans add constraint visit_plans_kind_values check (kind in ('site','ich','antiquity'));
+-- 升級 003：參訪心得不再要求至少 30 字（內容同 migrations/003_body_no_minimum.sql）
+alter table public.visits drop constraint if exists visits_body_check;
+alter table public.visits add constraint visits_body_check check (char_length(btrim(body)) between 1 and 5000);
 
 
 -- ---------- 列級權限（RLS） ----------
