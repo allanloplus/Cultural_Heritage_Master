@@ -37,6 +37,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .nav { display: flex; gap: 2px; flex-wrap: wrap; flex: 1; }
 .nav a { padding: 6px 10px; border-radius: 999px; text-decoration: none; color: var(--ink); font-size: .95rem; }
 .nav a.on { background: var(--teal); color: var(--teal-ink); }
+/* 回文資知識網站的按鈕 */
+.nav a.home-link { color: var(--teal); border: 1.5px solid var(--teal); font-weight: 700; padding: 4px 12px; margin-right: 4px; }
+.nav a.home-link:hover, .nav a.home-link:focus-visible { background: var(--teal); color: var(--teal-ink); }
 .nav a .cnt { background: var(--peach); color: #fff; border-radius: 999px; padding: 0 6px; font-size: .75rem; margin-left: 4px; }
 .who { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
 .demo-bar { background: var(--sun); color: #2b2521; font-size: .88rem; }

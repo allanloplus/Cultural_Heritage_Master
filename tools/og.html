@@ -1,0 +1,34 @@
+<!doctype html><html lang="zh-Hant-TW"><head><meta charset="utf-8">
+<!-- 分享連結時的預覽圖（1200×630）原稿：在 repo 根目錄開本機伺服器，用瀏覽器以 1200×630 開啟這一頁後截圖，存成 assets/og.jpg -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0}
+body{width:1200px;height:630px;overflow:hidden;background:#f6f1e7;font-family:"Noto Sans TC",sans-serif;color:#2b2521;position:relative}
+.bg{position:absolute;inset:0;background:radial-gradient(700px 420px at 88% 8%,#cfe8dd,transparent 70%),radial-gradient(500px 300px at 0 100%,#f3dfc0,transparent 70%)}
+.k{position:absolute;left:64px;top:52px;font-size:24px;font-weight:700;letter-spacing:.14em;color:#1d6f73;display:flex;align-items:center;gap:14px}
+.k img{width:48px;height:48px;border-radius:12px}
+h1{position:absolute;left:62px;top:124px;font-family:"LXGW WenKai TC",serif;font-weight:700;font-size:104px;line-height:1.2;letter-spacing:.04em;white-space:nowrap}
+.sub{position:absolute;left:66px;top:268px;font-family:"LXGW WenKai TC",serif;font-size:34px;line-height:1.5;color:#1d6f73}
+.chips{position:absolute;left:64px;bottom:44px;display:flex;gap:12px}
+.chips span{background:#fffdf8;border:1.5px solid #e0d5c3;border-radius:999px;padding:6px 20px;font-size:24px;font-weight:500;box-shadow:0 4px 12px rgba(60,40,20,.08);white-space:nowrap}
+.url{position:absolute;right:56px;bottom:26px;font-size:21px;color:#6c6058;letter-spacing:.04em}
+.faces{position:absolute;display:flex;gap:12px}
+.faces img{width:120px;height:120px;border-radius:50%;object-fit:cover;object-position:50% 12%;background:#cfe8dd;border:6px solid #fffdf8;box-shadow:0 8px 20px rgba(40,25,10,.22)}
+.faces img+img{background:#f7e2a6}
+.k img{border-radius:50%;background:#f7e2a6;object-fit:cover;object-position:top}
+.chars{position:absolute;right:44px;top:70px;display:flex;align-items:flex-end;gap:6px}
+.chars img{filter:drop-shadow(0 10px 14px rgba(40,25,10,.2))}
+h1{font-size:84px;top:136px}
+h1 em{font-style:normal;color:#df6f57}
+.stars{position:absolute;left:66px;top:392px;font-size:40px;letter-spacing:.12em;color:#f2b632}
+.stars small{font-size:22px;color:#6c6058;letter-spacing:.04em;margin-left:14px;font-family:"Noto Sans TC",sans-serif}
+</style></head><body><div class="bg"></div>
+<div class="k"><img src="../assets/characters/arale-thumb.webp">Allan Lo 和你逛文化・姊妹站</div>
+<h1>文資<em>達人</em>訪查</h1>
+<p class="sub">實地走一趟，<br>記下文化資產現在的樣子。</p>
+<p class="stars">★★★★★<small>達人的推薦指數</small></p>
+<div class="chips"><span>到訪日期</span><span>現況</span><span>心得</span><span>實地照片</span></div>
+<div class="chars"><img src="../assets/characters/allan-wave.webp" style="height:400px"><img src="../assets/characters/arale-wave.webp" style="height:352px"></div>
+<p class="url">cultural-visit.123hi.org</p>
+<script>document.fonts.ready.then(function () { return Promise.all([].map.call(document.images, function (im) { return im.complete ? 0 : new Promise(function (ok) { im.onload = im.onerror = ok; }); })); }).then(function () { document.body.dataset.ready = "1"; });</script>
+</body></html>
