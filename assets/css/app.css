@@ -278,3 +278,12 @@ h2 { display: flex; align-items: center; gap: 8px; }
 /* 登入狀態讀取逾時的提示列 */
 #authBar .wrap { flex-wrap: nowrap; }
 #authBar .toast-face { width: 34px; height: 34px; flex: none; }
+
+/* 訪查紀錄搜尋（#latest、#search/<關鍵字>） */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.vsearch { display: flex; gap: 8px; max-width: 640px; margin: 6px 0 4px; }
+.vsearch input { flex: 1; min-width: 0; font: inherit; font-size: 1.02rem; padding: 9px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); }
+.vsearch input:focus { outline: 3px solid var(--sun, var(--hinoki)); outline-offset: 1px; }
+.vsearch .btn { flex: none; }
+.vs-hint { max-width: 46em; margin: 4px 0 0; }
+.visit mark { background: color-mix(in srgb, var(--sun, #f2b632) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }

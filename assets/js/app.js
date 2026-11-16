@@ -8,7 +8,7 @@
  *   venue/<縣市>/<展示點 id>  展示點：該處的無形文資與古物（知識網站展示點的「達人紀錄」按鈕連到這裡）
  *   visit/<紀錄 id>          單筆訪查紀錄
  *   experts、expert/<id>      達人列表、達人個人統計（預計與實際到訪）
- *   latest                   最新紀錄
+ *   latest、search/<關鍵字>   訪查紀錄：沒有關鍵字時列出最新公開紀錄；有關鍵字時搜尋全部看得到的紀錄（心得、文資名稱、地點、達人、附近推薦…）
  *   submit/<縣市>/<景點 id>   新增訪查紀錄；edit/<紀錄 id> 修改
  *   mine                     我的訪查、預計到訪、個人資料
  *   apply                    申請成為達人；login 登入；admin 審查；about 關於 */
@@ -193,7 +193,7 @@
   var ROUTES = {};
   function route() {
     var h = (location.hash || "#home").slice(1).split("/").map(decodeURIComponent), name = h[0] || "home";
-    $$("#nav a").forEach(function (a) { a.classList.toggle("on", a.dataset.r === name || (name === "county" && a.dataset.r === "coverage") || (name === "expert" && a.dataset.r === "experts")); });
+    $$("#nav a").forEach(function (a) { a.classList.toggle("on", a.dataset.r === name || (name === "county" && a.dataset.r === "coverage") || (name === "expert" && a.dataset.r === "experts") || (name === "search" && a.dataset.r === "latest")); });
     var fn = ROUTES[name] || ROUTES.home;
     view.innerHTML = '<div class="loading">' + araImg("think", "loading-face") + '<span>阿拉蕾正在翻資料…</span></div>';
     window.scrollTo(0, 0);
@@ -205,19 +205,21 @@
   /* ---------- 共用片段 ---------- */
   function visitCard(v, opt) {
     opt = opt || {};
-    var s = site(v.county_slug, v.site_id), c = COUNTY[v.county_slug], KD = K(v);
+    var s = site(v.county_slug, v.site_id), c = COUNTY[v.county_slug], KD = K(v), ts = opt.hl || [];
+    /* 搜尋結果：標示命中的字；摘要從第一個命中處附近開始，免得命中的字被截掉 */
+    var bodyHtml = ts.length ? markText(opt.short ? snippetAround(v.body, ts, 160) : v.body, ts) : esc(opt.short && v.body.length > 160 ? v.body.slice(0, 160) + "…" : v.body);
     var mine = ME && v.user_id === ME.id;
     return '<article class="visit" id="v-' + v.id + '">' +
-      '<div class="visit-h"><h3>' + (opt.showSite ? siteLink(v) + " " + kindTag(v) + '<small class="muted">' + esc(c ? c.label : "") + "</small>" : KD.verb + " " + esc(v.visit_date)) + "</h3>" +
+      '<div class="visit-h"><h3>' + (opt.showSite ? (ts.length ? '<a href="#site/' + v.county_slug + "/" + encodeURIComponent(v.site_id) + '">' + markText(v.site_name, ts) + "</a>" : siteLink(v)) + " " + kindTag(v) + '<small class="muted">' + esc(c ? c.label : "") + "</small>" : KD.verb + " " + esc(v.visit_date)) + "</h3>" +
       "<div>" + stars(v.recommend) + " " + (v.status !== "published" ? stTag(v.status) : "") + (v.demo ? '<span class="tag">示範</span>' : "") + "</div></div>" +
-      '<p class="meta">' + (opt.showSite ? KD.verb + "日 " + esc(v.visit_date) + "・" : "") + '達人 <a href="#expert/' + v.user_id + '">' + esc(v.author) + "</a>" +
+      '<p class="meta">' + (opt.showSite ? KD.verb + "日 " + esc(v.visit_date) + "・" : "") + '達人 <a href="#expert/' + v.user_id + '">' + markText(v.author, ts) + "</a>" +
       (v.updated_at && v.updated_at.slice(0, 10) !== v.created_at.slice(0, 10) ? "・更新於 " + v.updated_at.slice(0, 10) : "") + "</p>" +
       '<div class="facts"><span><b>' + KD.condL + '</b><span class="cond-' + esc(v.condition) + '">' + esc(v.condition) + "</span></span><span><b>" + KD.openL + "</b>" + esc(v.open_status) + "</span>" +
       (v.mode ? "<span><b>參與方式</b>" + esc(v.mode) + "</span>" : "") +
       (v.duration_min ? "<span><b>停留</b>約 " + v.duration_min + " 分</span>" : "") + (v.fee ? "<span><b>費用</b>" + esc(v.fee) + "</span>" : "") +
       (v.crowd ? "<span><b>人潮</b>" + esc(v.crowd) + "</span>" : "") + (v.accessible ? "<span><b>無障礙</b>" + esc(v.accessible) + "</span>" : "") + "</div>" +
-      '<p class="body">' + (v.mood ? '<span class="mood" title="當天心情">' + (MOOD_FACE[v.mood] ? araImg(MOOD_FACE[v.mood], "mood-face") : "") + esc(v.mood) + "</span>" : "") + esc(opt.short && v.body.length > 160 ? v.body.slice(0, 160) + "…" : v.body) + "</p>" +
-      (opt.short && (v.nearby || []).length ? '<p class="small muted">附近推薦：' + v.nearby.map(function (n) { return esc(n.type + "・" + n.name); }).join("、") + "</p>" : "") +
+      '<p class="body">' + (v.mood ? '<span class="mood" title="當天心情">' + (MOOD_FACE[v.mood] ? araImg(MOOD_FACE[v.mood], "mood-face") : "") + esc(v.mood) + "</span>" : "") + bodyHtml + "</p>" +
+      (opt.short && (v.nearby || []).length ? '<p class="small muted">附近推薦：' + v.nearby.map(function (n) { return markText(n.type + "・" + n.name, ts); }).join("、") + "</p>" : "") +
       (opt.short ? "" :
         (v.tips ? '<p><b>參訪建議｜</b>' + esc(v.tips) + "</p>" : "") +
         (v.scores ? '<div class="facts">' + Object.keys(SCORE).filter(function (k) { return v.scores[k]; }).map(function (k) { return "<span><b>" + SCORE[k] + "</b>" + stars(v.scores[k]) + "</span>"; }).join("") + "</div>" : "") +
@@ -266,7 +268,7 @@
         kpi(upcoming.length, "預計到訪（筆）") + kpi(experts.length, "核准達人（位）") + "</div>" +
         '<div class="btns">' + (isExpert() ? '<a class="btn btn-warm" href="#coverage">挑一處文資去訪查</a>' : '<a class="btn btn-warm" href="#apply">申請成為文資達人</a>') +
         '<a class="btn" href="#coverage">看各縣市查核資訊</a></div></section>' +
-        '<section class="sec"><div class="sec-h"><h2>最新訪查</h2><a href="#latest">全部紀錄 →</a></div>' +
+        '<section class="sec"><div class="sec-h"><h2>最新訪查</h2><a href="#latest">全部紀錄・搜尋 →</a></div>' +
         (latest.length ? latest.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : ara("think", "還沒有公開的訪查紀錄耶……第一篇會是哪裡呢？好期待！")) + "</section>" +
         '<section class="sec"><div class="sec-h"><h2>各縣市訪查覆蓋率</h2><a href="#coverage">詳細查核資訊 →</a></div>' +
         '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>縣市</th>' + KINDS.map(function (k) { return '<th class="n">' + KIND[k].label + "</th>"; }).join("") + '<th style="width:30%">有形文資進度</th></tr></thead><tbody>' + rows.map(function (x) {
@@ -575,17 +577,103 @@
     });
   };
 
-  ROUTES.latest = function () {
-    return S.listVisits({ status: "published", limit: 100 }).then(function (list) {
-      view.innerHTML = '<h1>最新訪查紀錄</h1><div class="filters"><select id="fc"><option value="">全部縣市</option>' + IDX.counties.map(function (c) { return '<option value="' + c.slug + '">' + esc(c.label) + "</option>"; }).join("") + '</select></div><div id="list"></div>';
+  /* ---------- 訪查紀錄與搜尋 ----------
+   * 在瀏覽器裡搜尋：讀取目前身分看得到的全部紀錄（訪客只有已公開的；權限由資料庫 RLS 與示範模式的 visible() 決定），
+   * 不必改資料庫。紀錄很多時（正式模式一次最多讀 1,000 筆）再改成伺服器端搜尋。 */
+  /* 比對前統一寫法：大小寫、台／臺、砲／炮／礮，去掉空白（與文資知識網站的搜尋相同） */
+  function qnorm(t) { return String(t || "").toLowerCase().replace(/台/g, "臺").replace(/[炮礮]/g, "砲").replace(/\s+/g, ""); }
+  function qterms(q) { return String(q || "").split(/[\s,，、　]+/).map(qnorm).filter(Boolean); }
+  /* 與 qnorm 同樣的換字但保留長度與空白，用來找出原文中命中的位置 */
+  function qfold(t) { return String(t || "").toLowerCase().replace(/台/g, "臺").replace(/[炮礮]/g, "砲"); }
+  function markText(text, ts) {
+    text = String(text == null ? "" : text);
+    if (!ts || !ts.length) return esc(text);
+    var f = qfold(text), r = [];
+    ts.forEach(function (t) { var p = f.indexOf(t); while (p >= 0) { r.push([p, p + t.length]); p = f.indexOf(t, p + t.length); } });
+    if (!r.length) return esc(text);
+    r.sort(function (a, b) { return a[0] - b[0]; });
+    var out = "", at = 0;
+    r.forEach(function (x) { if (x[0] < at) { if (x[1] > at) { out += esc(text.slice(at, x[1])); at = x[1]; } return; } out += esc(text.slice(at, x[0])) + "<mark>" + esc(text.slice(x[0], x[1])) + "</mark>"; at = x[1]; });
+    return out.replace(/<\/mark><mark>/g, "") + esc(text.slice(at));
+  }
+  function snippetAround(text, ts, n) {
+    text = String(text || "");
+    if (text.length <= n) return text;
+    var f = qfold(text), p = -1;
+    ts.forEach(function (t) { var i = f.indexOf(t); if (i >= 0 && (p < 0 || i < p)) p = i; });
+    if (p < n - 40) return text.slice(0, n) + "…";
+    var a = Math.max(0, p - 50);
+    return "…" + text.slice(a, a + n) + (a + n < text.length ? "…" : "");
+  }
+  /* 每筆紀錄分成幾段比對，命中越重要的欄位分數越高 */
+  function visitHay(v) {
+    if (v._hay) return v._hay;
+    var s = site(v.county_slug, v.site_id) || {}, c = COUNTY[v.county_slug] || {}, KD = K(v);
+    v._hay = [
+      [40, qnorm(v.site_name + (s.short || "") + (s.venue ? s.venue.name : ""))],
+      [30, qnorm((c.label || "") + (c.name || "") + (s.town || "") + (s.venue ? s.venue.address : ""))],
+      [25, qnorm(v.author)],
+      [15, qnorm(KD.label + (s.category || "") + v.condition + v.open_status + (v.mode || "") + (v.mood || "") + (v.crowd || "") + (v.accessible ? "無障礙" + v.accessible : "") +
+        (v.nearby || []).map(function (n) { return n.type + n.name + (n.note || ""); }).join(""))],
+      [10, qnorm(v.body + (v.tips || "") + (v.fee || "") + (v.correction || "") + v.visit_date + (v.photos || []).map(function (p) { return p.caption || ""; }).join(""))]
+    ];
+    return v._hay;
+  }
+  function visitScore(v, ts) {
+    var h = visitHay(v), s = 0;
+    for (var i = 0; i < ts.length; i++) {
+      var best = 0;
+      for (var j = 0; j < h.length; j++) if (h[j][1].indexOf(ts[i]) >= 0) { best = h[j][0]; break; }
+      if (!best) return 0;
+      s += best;
+    }
+    return s;
+  }
+  ROUTES.latest = function () { return recordsPage(""); };
+  ROUTES.search = function (q) { return recordsPage(q || ""); };
+  var LATEST_N = 100;
+  function recordsPage(q0) {
+    return S.listVisits({}).then(function (all) {
+      view.innerHTML = '<h1>訪查紀錄</h1>' +
+        '<form class="vsearch" id="vs" role="search"><label class="sr-only" for="vq">搜尋訪查紀錄</label>' +
+        '<input id="vq" type="search" value="' + esc(q0) + '" placeholder="搜尋心得、文資名稱、地點、達人、附近美食…" autocomplete="off" enterkeyhint="search">' +
+        '<button class="btn" type="submit">搜尋</button></form>' +
+        '<p class="small muted vs-hint">可以搜文資名稱、縣市鄉鎮、達人、心得與參訪建議、現況（例如「待修繕」）、心情、附近推薦的店名；多個關鍵字用空白分開，會找出同時符合的紀錄。</p>' +
+        '<div class="filters"><select id="fc" aria-label="縣市"><option value="">全部縣市</option>' + IDX.counties.map(function (c) { return '<option value="' + c.slug + '">' + esc(c.label) + "</option>"; }).join("") + "</select>" +
+        '<select id="fk" aria-label="類別"><option value="">全部類別</option>' + KINDS.map(function (k) { return '<option value="' + k + '">' + KIND[k].label + "</option>"; }).join("") + "</select>" +
+        '<select id="fo" aria-label="排序"><option value="score">最相關</option><option value="date">日期新到舊</option></select></div>' +
+        '<p class="small muted" id="cnt" aria-live="polite"></p><div id="list"></div>';
+      var timer = 0;
       function draw() {
-        var f = $("#fc").value, l = list.filter(function (v) { return !f || v.county_slug === f; });
-        $("#list").innerHTML = l.length ? l.map(function (v) { return visitCard(v, { showSite: true, short: true }); }).join("") : ara("think", "這裡還沒有紀錄耶，換個縣市看看？");
+        var q = $("#vq").value.trim(), ts = qterms(q), fc = $("#fc").value, fk = $("#fk").value, byDate = $("#fo").value === "date";
+        $("#fo").hidden = !ts.length;
+        var l = all.filter(function (v) { return (!fc || v.county_slug === fc) && (!fk || kindOf(v) === fk); }), msg;
+        if (!ts.length) {
+          l = l.filter(function (v) { return v.status === "published"; });
+          msg = l.length > LATEST_N ? "最新 " + LATEST_N + " 篇公開紀錄（共 " + l.length + " 篇）" : "共 " + l.length + " 篇公開紀錄";
+          l = l.slice(0, LATEST_N);
+        } else {
+          var sc = {};
+          l = l.filter(function (v) { var s = visitScore(v, ts); sc[v.id] = s; return s > 0; });
+          if (!byDate) l.sort(function (a, b) { return sc[b.id] - sc[a.id] || (a.visit_date < b.visit_date ? 1 : a.visit_date > b.visit_date ? -1 : 0); });
+          msg = l.length ? "找到 " + l.length + " 篇符合「" + esc(q) + "」的紀錄" : "";
+        }
+        $("#cnt").innerHTML = msg;
+        $("#list").innerHTML = l.length ? l.map(function (v) { return visitCard(v, { showSite: true, short: true, hl: ts }); }).join("") :
+          ts.length ? ara("think", "找不到「" + esc(q) + "」耶……換個關鍵字試試？例如文資名稱、縣市、達人的名字，或是心得裡可能出現的字。") : ara("think", "這裡還沒有紀錄耶，換個縣市看看？");
         bindPhotos($("#list"));
       }
-      $("#fc").onchange = draw; draw();
+      /* 打字時直接更新結果，網址同步成 #search/<關鍵字>（用 replaceState，不觸發重新載入），可複製分享 */
+      function sync() {
+        var q = $("#vq").value.trim(), h = q ? "#search/" + encodeURIComponent(q) : "#latest";
+        if (location.hash !== h) { try { history.replaceState(null, "", h); } catch (e) { /* 不支援時不更新網址 */ } }
+      }
+      $("#vq").oninput = function () { clearTimeout(timer); timer = setTimeout(function () { draw(); sync(); }, 220); };
+      $("#vs").onsubmit = function (e) { e.preventDefault(); clearTimeout(timer); $("#vq").blur(); draw(); sync(); };
+      $("#fc").onchange = $("#fk").onchange = $("#fo").onchange = draw;
+      draw();
     });
-  };
+  }
 
   /* ---------- 達人 ---------- */
   ROUTES.experts = function () {
